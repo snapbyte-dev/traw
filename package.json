@@ -15,6 +15,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings 0",
     "parity": "node scripts/check-parity.mjs",
+    "parity:validate": "node scripts/check-parity.mjs --validate",
     "test": "vitest run",
     "test:types": "tsc --project tsconfig.types.json",
     "test:watch": "vitest",
