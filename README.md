@@ -27,6 +27,12 @@ complying with Reddit's current API terms and policies.
 - Node.js 22 or newer
 - pnpm 10 for repository development
 
+## Installation
+
+```bash
+pnpm add @snapbyte-dev/traw
+```
+
 ## Development setup
 
 From a local checkout:
@@ -55,7 +61,7 @@ pnpm example:top-posts
 The example fetches the top 10 posts from r/typescript and prints their titles.
 
 ```ts
-import { Reddit } from "traw";
+import { Reddit } from "@snapbyte-dev/traw";
 
 const reddit = new Reddit({
   clientId: process.env.REDDIT_CLIENT_ID!,
@@ -101,7 +107,7 @@ for await (const item of community.moderation.modqueue({ limit: 10 })) {
 Generic polling accepts an `AbortSignal` and a listing fetcher:
 
 ```ts
-import { streamGenerator } from "traw";
+import { streamGenerator } from "@snapbyte-dev/traw";
 
 const controller = new AbortController();
 const posts = streamGenerator(
