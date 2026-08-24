@@ -45,6 +45,15 @@ The examples below are limited to behavior that is currently implemented.
 Network operations return promises; listings and polling streams are
 asynchronous iterables.
 
+To run the top-posts example, create `.env` from `.env.example`, add your Reddit
+application credentials, and run:
+
+```bash
+pnpm example:top-posts
+```
+
+The example fetches the top 10 posts from r/typescript and prints their titles.
+
 ```ts
 import { Reddit } from "traw";
 

@@ -26,6 +26,7 @@
   },
   "include": [
     "src/**/*.ts",
+    "examples/**/*.ts",
     "tests/**/*.ts",
     "vitest.config.ts",
     "eslint.config.js"

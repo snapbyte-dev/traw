@@ -11,6 +11,7 @@
   "scripts": {
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:types",
     "coverage": "vitest run --coverage",
+    "example:top-posts": "tsx examples/typescript-top-posts.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings 0",
@@ -25,6 +26,7 @@
     "@vitest/coverage-v8": "4.1.11",
     "eslint": "10.9.0",
     "prettier": "3.9.6",
+    "tsx": "4.23.12",
     "typescript": "5.9.3",
     "typescript-eslint": "8.67.0",
     "vitest": "4.1.11"
