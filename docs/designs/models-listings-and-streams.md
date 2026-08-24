@@ -1,6 +1,6 @@
 # Models, Listings, and Streams
 
-**Status:** Implemented; required model, listing, and stream outcomes verified
+**Status:** Implemented for the documented, locally tested boundaries
 
 ## Overview
 
@@ -103,16 +103,14 @@ legacy modmail, multireddits, and live updates.
 
 ## Compatibility boundary
 
-All required PRAW 8.0.3 model, listing, and stream outcomes are verified per
-schema-v2 ledger scenario. Outcome parity does not require Python symbol
-identity or identical API shape. The separate 85-export manifest classifies
-migration-surface presence and is nonblocking; its wrapper and data-model
-entries do not independently claim behavior.
+PRAW 8.0.3 is a behavioral reference, not a requirement to reproduce Python
+symbols or API shapes. Focused local tests define the supported model, listing,
+and stream boundaries; exported types do not independently claim behavior.
 
 ## Test ownership
 
 - `tests/models.test.ts`, `models-edge-cases.test.ts`, and
-  `public-models.test.ts` — hydration, identity, object graphs, response
+  `model-capabilities.test.ts` — hydration, identity, object graphs, response
   containers, and comment forests.
 - `tests/objector.test.ts` — kind and shape conversion and API error detection.
 - `tests/listing.test.ts` and `helpers.test.ts` — cursor adapters, batching,
@@ -125,4 +123,4 @@ entries do not independently claim behavior.
 
 - [Architecture](../ARCHITECTURE.md)
 - [Domain capabilities](domain-capabilities.md)
-- [Compatibility ledger](compatibility-ledger.md)
+- [Compatibility](../COMPATIBILITY.md)

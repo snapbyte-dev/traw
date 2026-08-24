@@ -1,15 +1,14 @@
 # Community Administration
 
-**Status:** Implemented; required administration outcomes verified
+**Status:** Implemented for the documented, locally tested boundaries
 
 ## Overview
 
 Community administration is exposed through `reddit.subreddits` and helpers
-scoped from `reddit.subreddit(name)`. Source, focused tests, and the
-compatibility ledger verify the required PRAW 8.0.3 administration outcomes for
-community creation, settings, invitations, quarantine, moderation queues,
-relationships, flair, rules, removal reasons, wiki, emoji, stylesheet assets,
-widgets, and collections.
+scoped from `reddit.subreddit(name)`. Source and focused tests cover the
+documented administration boundaries for community creation, settings,
+invitations, quarantine, moderation queues, relationships, flair, rules, removal
+reasons, wiki, emoji, stylesheet assets, widgets, and collections.
 
 ## Implemented contracts
 
@@ -19,7 +18,7 @@ widgets, and collections.
 | Relationships                                   | Banned, muted, contributor, moderator, wiki-banned, and wiki-contributor listings and mutations, including moderator invitations and permission updates.                                                                        |
 | `flair`                                         | User/link flair assignment and clearing, configuration, template list/create/update/delete/reorder, and user deletion.                                                                                                          |
 | `rules`, `removalReasons`                       | Ordered reads plus validated create/update/delete; rules also support reorder and partial updates fetch retained fields.                                                                                                        |
-| `wiki`                                          | Page list/reference/create/read/edit, optimistic previous revision, page/global revisions, revert, discussions, settings, editors, and wiki relationships.                                                                      |
+| `wiki`                                          | Page list/reference/create/load/edit, optimistic previous revision, page/global revisions, revert, discussions, settings, editors, and wiki relationships.                                                                      |
 | `emoji`                                         | List/reference/refresh, leased replayable upload, permissions update, and delete.                                                                                                                                               |
 | `stylesheet`                                    | Legacy stylesheet read/update and named/header/mobile image operations; redesign banner/mobile assets use leases, unauthenticated upload, and structured-style patches.                                                         |
 | `widgets`                                       | Typed fetch/refresh and layout access; supported widget creation, update/delete, ordering, and leased image upload.                                                                                                             |
@@ -83,11 +82,11 @@ shell.
   `standalone-stylesheet.test.ts` — page and asset lifecycles.
 - `tests/widgets-domain.test.ts` and `collections-domain.test.ts` — typed
   widget/layout behavior, media upload, and collection lifecycle.
-- Ledger promotion additionally requires pinned upstream evidence and complete
-  scenario coverage.
+- Compatibility changes should cite pinned upstream behavior where relevant and
+  add focused tests for the documented boundary.
 
 ## Related docs
 
 - [Domain capabilities](domain-capabilities.md)
 - [Media and submission](media-and-submission.md)
-- [Compatibility ledger](compatibility-ledger.md)
+- [Compatibility](../COMPATIBILITY.md)

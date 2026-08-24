@@ -19,10 +19,9 @@ status live in [`docs/designs/`](designs/).
   rate-limit headers, and media-upload leases.
 - The caller owns credentials, requested OAuth scopes, cancellation, consumption
   of lazy iterables, and client shutdown.
-- The PRAW 8.0.3 ledger verifies all 16 required outcome groups and every
-  scenario. Outcome parity does not require Python symbol identity or identical
-  API shape; the separate 85-export manifest is nonblocking. See the
-  [compatibility ledger design](designs/compatibility-ledger.md).
+- PRAW 8.0.3 is a behavioral reference. The TypeScript-native API and its
+  focused local tests define supported boundaries; see
+  [Compatibility](COMPATIBILITY.md).
 
 ## Principles
 
@@ -31,9 +30,9 @@ status live in [`docs/designs/`](designs/).
    `AsyncIterable`.
 2. **Replay before retry.** Request bodies and media bytes are snapshotted so an
    eligible retry can reproduce the payload.
-3. **Outcome parity with explicit adaptations.** TypeScript differences such as
-   options objects, camel case, promises, and `AbortSignal` are intentional;
-   behavioral claims require tests.
+3. **Behavioral reference with explicit adaptations.** TypeScript differences
+   such as options objects, camel case, promises, and `AbortSignal` are
+   intentional; behavioral claims require tests.
 4. **Secure defaults.** Reddit endpoints require HTTPS, custom endpoint
    overrides require an explicit opt-in, and OAuth errors redact known secrets.
 
@@ -80,9 +79,8 @@ Media submission completion: Reddit response -> WebSocket status -> Submission
 - **Media and submission** — snapshots media, obtains Reddit upload leases,
   uploads without OAuth, builds standard or inline-rich-text submissions, and
   can follow asynchronous completion over WebSocket.
-- **Compatibility controls** — pin PRAW 8.0.3 behavior, verify all required
-  outcomes and scenarios, and keep the nonblocking export inventory separate
-  from outcome parity.
+- **Compatibility boundary** — uses PRAW 8.0.3 as a behavioral reference while
+  local tests define the supported TypeScript-native contracts.
 
 ## Shared control flow
 
@@ -92,7 +90,7 @@ Media submission completion: Reddit response -> WebSocket status -> Submission
 3. `FetchTransport` sends the request with timeout and cancellation signals and
    buffers the response.
 4. `Session` updates rate-limit state, retries eligible failures, or maps the
-   response to a typed exception.
+   response to a typed `Error`.
 5. Higher layers objectify known Reddit things while retaining unknown fields
    through `raw` and `get()`.
 
@@ -124,4 +122,5 @@ and resolve the redirected submission.
 - [Domain capabilities](designs/domain-capabilities.md)
 - [Moderation and modmail](designs/moderation-and-modmail.md)
 - [Community administration](designs/community-administration.md)
-- [Compatibility ledger](designs/compatibility-ledger.md)
+- [Compatibility](COMPATIBILITY.md)
+- [Provenance](PROVENANCE.md)

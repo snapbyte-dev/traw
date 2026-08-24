@@ -1,7 +1,7 @@
 # Third-party notices
 
-TRAW is an unofficial TypeScript port derived from PRAW 8.0.3. PRAW is Copyright
-(c) 2016, Bryce Boe. All rights reserved.
+TRAW uses PRAW 8.0.3 as a behavioral reference and includes material adapted
+from it. PRAW is Copyright (c) 2016, Bryce Boe. All rights reserved.
 
 Portions derived from PRAW, including adapted behavior, tests, documentation,
 and recorded fixtures, remain subject to this BSD 2-Clause license:
@@ -26,4 +26,5 @@ and recorded fixtures, remain subject to this BSD 2-Clause license:
 > OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 > OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-PRAW source: <https://github.com/praw-dev/praw/tree/v8.0.3>
+Pinned sources and material ownership are documented in
+[Provenance](docs/PROVENANCE.md).

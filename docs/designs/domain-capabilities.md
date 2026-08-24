@@ -1,6 +1,6 @@
 # Domain Capabilities
 
-**Status:** Implemented; required PRAW 8.0.3 outcomes verified
+**Status:** Implemented for the documented, locally tested boundaries
 
 ## Overview
 
@@ -11,20 +11,20 @@ domains.
 
 ## Implemented contracts
 
-| Surface                                    | Contract                                                                                                                                                                                                                                                                 |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `front`, `subreddit(name)`, `domain(name)` | Lazy standard sorts including best/controversial where applicable; subreddit comments, search, sticky, traffic, post requirements, and content streams.                                                                                                                  |
-| `redditor(name)`                           | Lazy overview, comment, submission, saved, hidden, upvoted, and downvoted listings plus comment/submission streams.                                                                                                                                                      |
-| `info()`                                   | Single-use async listing by exactly one of fullname batches, subreddit batches, or URL.                                                                                                                                                                                  |
-| `account` / `user`                         | Current user with cache bypass and profile subreddit objectification; karma; subscribed/contributor/moderator communities; preferences; friends/blocked/trusted users; profile pins; trophies; moderated communities; owned/public multireddits; relationship mutations. |
-| `inbox`                                    | Async views for all, unread, messages, replies, mentions, and sent; mark-all-read and 25-item unread batches.                                                                                                                                                            |
-| `announcements`                            | Callable/list alias with specialized `after` pagination and authorized mark-all-read.                                                                                                                                                                                    |
-| `drafts`                                   | List, reference, create, hydrate, update, delete, and submit markdown/link drafts with validated targets and overrides.                                                                                                                                                  |
-| `live`                                     | Reference, create, batch info, happening-now lookup, hydration, updates/discussions, reporting, contribution/moderation, contributor relationships, and update streams.                                                                                                  |
-| `multireddit`                              | Reference, hydrate, create, list, update, add/remove communities, copy, rename, delete, sorted listings, and comment/submission streams.                                                                                                                                 |
-| `notes`                                    | Site-wide, subreddit-scoped, and redditor-scoped moderator-note listing, filtering, creation, deletion, and chunked bulk operations.                                                                                                                                     |
-| `redditors`, `subreddits`                  | New/search and default/new/popular/search discovery listings.                                                                                                                                                                                                            |
-| `usernameAvailable()`                      | Boolean username availability request.                                                                                                                                                                                                                                   |
+| Surface                                    | Contract                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `front`, `subreddit(name)`, `domain(name)` | Lazy standard sorts including best/controversial where applicable; subreddit comments, search, sticky, traffic, post requirements, and content streams.                                                                                                                                                               |
+| `redditor(name)`                           | Lazy overview, comment, submission, saved, hidden, upvoted, and downvoted listings plus comment/submission streams.                                                                                                                                                                                                   |
+| `info()`                                   | Single-use async listing by exactly one of fullname batches, subreddit batches, or URL.                                                                                                                                                                                                                               |
+| `account`                                  | Current user with cache bypass and profile subreddit objectification; karma; subscribed/contributor/moderator communities; `preferences.get()`/`update()`; friends/blocked/trusted users; profile pins; trophies; moderated communities; owned/public multireddits; relationship mutations. There is no `user` alias. |
+| `inbox`                                    | Async views for all, unread, messages, replies, mentions, and sent; mark-all-read and 25-item unread batches.                                                                                                                                                                                                         |
+| `announcements`                            | `announcements.list()` with specialized `after` pagination, item/batch hide and mark-read operations, and authorized mark-all-read.                                                                                                                                                                                   |
+| `drafts`                                   | `drafts.reference()`, `drafts.list()`, and `drafts.create()`, plus draft hydration, update, delete, and submit for validated markdown/link drafts.                                                                                                                                                                    |
+| `live`                                     | `live.reference()`, create, batch info, happening-now lookup, hydration, updates/discussions, reporting, contribution/moderation, contributor relationships, and update streams.                                                                                                                                      |
+| `multireddits`                             | `reddit.multireddits.reference/load/create/mine/public`, plus model update, add/remove communities, copy, rename, delete, sorted listings, and comment/submission streams.                                                                                                                                            |
+| `notes`                                    | Site-wide, subreddit-scoped, and redditor-scoped moderator-note listing, filtering, creation, deletion, and chunked bulk operations.                                                                                                                                                                                  |
+| `redditors`, `subreddits`                  | New/search and default/new/popular/search discovery listings.                                                                                                                                                                                                                                                         |
+| `usernameAvailable()`                      | Boolean username availability request.                                                                                                                                                                                                                                                                                |
 
 Entity methods also implement reusable content actions: reply, edit, delete,
 vote/clear vote, save/unsave, report, inbox reply toggles, moderation actions,
@@ -43,8 +43,8 @@ account relationship operations.
   URL-encoded where they become path segments.
 - Model values accepted as identities use their `toString()` result.
 - Optional `AbortSignal` flows to every request made by the operation.
-- Callable PRAW helpers may be represented by callable objects with named
-  aliases, such as `announcements.list()` and `notes.list()`.
+- PRAW helper objects are represented by client-bound TypeScript classes with
+  named methods rather than callable objects.
 
 ## Runtime and state
 
@@ -63,8 +63,7 @@ Reddit response rather than performing that local check.
 - Empty identities, mutually exclusive draft inputs, missing flair dependencies,
   malformed domain responses, and non-boolean username results fail with
   `TypeError`.
-- Authorized-only domain methods fail with `ReadOnlyException` in read-only
-  mode.
+- Authorized-only domain methods fail with `ReadOnlyError` in read-only mode.
 - Pagination, transport, OAuth, Reddit API, and HTTP failures preserve the
   lower-layer contracts.
 - Bulk inbox unread updates are sequential batches. A failure can leave earlier
@@ -81,18 +80,15 @@ Reddit response rather than performing that local check.
 
 ## Compatibility boundary
 
-The source, focused tests, and schema-v2 ledger verify all required PRAW 8.0.3
-outcome groups and scenarios. This is outcome parity, not Python symbol or
-API-shape identity; the nonblocking 85-export manifest remains a migration
-inventory. New capabilities must:
+PRAW 8.0.3 is the behavioral reference, while the TypeScript-native source and
+focused local tests define the supported boundaries. New capabilities must:
 
 1. expose explicit promise/`AsyncIterable` outcomes and cancellation;
 2. validate inputs before network I/O;
 3. preserve read-only and OAuth scope boundaries;
 4. use model objectification without claiming fields Reddit does not guarantee;
 5. define partial-failure behavior for batched mutations;
-6. add dedicated tests and pinned upstream evidence before the compatibility
-   ledger can mark the containing scenario verified.
+6. add dedicated tests and cite pinned upstream behavior where relevant.
 
 Moderation/modmail and community administration are detailed separately because
 their authorization and operational risks are broader.
@@ -114,4 +110,4 @@ their authorization and operational risks are broader.
 - [Models, listings, and streams](models-listings-and-streams.md)
 - [Moderation and modmail](moderation-and-modmail.md)
 - [Community administration](community-administration.md)
-- [Compatibility ledger](compatibility-ledger.md)
+- [Compatibility](../COMPATIBILITY.md)

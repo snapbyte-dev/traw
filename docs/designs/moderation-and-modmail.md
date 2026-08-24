@@ -1,14 +1,14 @@
 # Moderation and Modmail
 
-**Status:** Implemented; required moderation and modmail outcomes verified
+**Status:** Implemented for the documented, locally tested boundaries
 
 ## Overview
 
 Moderation is scoped from `reddit.subreddit(name)`. The repository implements
 queue/log reads and streams, community relationships, flair, scoped moderator
 notes, rules, removal reasons, content moderation actions, modern modmail, and
-legacy modmail. Source, focused tests, and the schema-v2 ledger verify all
-required PRAW 8.0.3 moderation and modmail outcomes.
+legacy modmail. Source and focused tests define the documented moderation and
+modmail boundaries using PRAW 8.0.3 as a behavioral reference.
 
 ## Moderation contracts
 
@@ -64,9 +64,9 @@ incomplete relationship data; TypeScript unions constrain filters and mute
 durations for typed callers. Scope/permission, Reddit API, and transport
 failures preserve the shared exception contracts.
 
-Outcome parity does not imply Python symbol identity or identical API shape.
-Ledger verification requires complete scenario and pinned upstream evidence; the
-separate 85-export manifest is nonblocking.
+Compatibility does not imply Python symbol identity or an identical API shape.
+Focused local tests define the supported boundary and do not certify current
+live Reddit behavior.
 
 ## Security and privacy
 
@@ -81,7 +81,7 @@ separate 85-export manifest is nonblocking.
 
 ## Test ownership
 
-- `tests/mod-notes-parity.test.ts`, `tests/moderation-domains.test.ts`, and
+- `tests/mod-notes-domain.test.ts`, `tests/moderation-domains.test.ts`, and
   `tests/moderation-edge.test.ts` own scoped notes, queue filters/streams,
   relationships, flair, rules, removal reasons, validation, and cancellation.
 - `tests/modmail-domain.test.ts` owns modern/legacy listing, parsing, lifecycle
@@ -93,4 +93,4 @@ separate 85-export manifest is nonblocking.
 
 - [Domain capabilities](domain-capabilities.md)
 - [Reddit client runtime](reddit-client-runtime.md)
-- [Compatibility ledger](compatibility-ledger.md)
+- [Compatibility](../COMPATIBILITY.md)

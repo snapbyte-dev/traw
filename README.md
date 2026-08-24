@@ -9,25 +9,14 @@ preserve the same observable behavior.
 
 ## Current status
 
-The machine-readable [`parity/praw-8.0.3.json`](parity/praw-8.0.3.json) ledger
-verifies all 16 required outcome groups and every scenario they contain. This
-includes:
+TRAW implements the documented TypeScript API boundaries for authentication,
+requests, models, listings, streams, submissions, account workflows, and Reddit
+domains. Focused local tests define those supported boundaries. PRAW 8.0.3 is a
+behavioral reference, not a promise of Python-compatible symbols or call shapes.
 
-- current-account profile subreddit objectification;
-- subreddit creation, settings reads and updates, moderator-invite acceptance,
-  and quarantine opt-in/out;
-- site-wide, subreddit-scoped, and redditor-scoped moderator-note workflows;
-- showing crowd-controlled comments; and
-- typed removal messages for comments and submissions.
-
-Outcome parity is the compatibility claim: equivalent observable requests,
-models, errors, pagination, and state transitions within the pinned ledger. It
-does not require Python symbol identity or an identical public API shape. The
-separate 85-export PRAW model manifest is a nonblocking migration inventory; an
-export classification neither adds to nor limits outcome parity.
-
-See the [parity guide](parity/README.md) for status semantics and evidence
-policy. The machine-readable ledger remains the detailed source of truth.
+Local and mocked tests do not guarantee current interoperability with live
+Reddit. See [Compatibility](docs/COMPATIBILITY.md) for the claim and evidence
+policy.
 
 TRAW follows Reddit API constraints, including OAuth, rate limits, and
 appropriate user-agent identification. Applications remain responsible for
@@ -49,9 +38,6 @@ pnpm typecheck
 pnpm test
 pnpm test:types
 ```
-
-`pnpm parity` verifies that every required ledger outcome and scenario satisfies
-the completion rule. The 85-export manifest remains nonblocking.
 
 ## Examples
 
@@ -78,7 +64,24 @@ const submission = reddit.submission({ id: "5e1az9" });
 await submission.reply("Hello from TypeScript");
 
 const account = await reddit.account.me();
-console.log(account.toString(), await reddit.account.preferences());
+const preferences = await reddit.account.preferences.get();
+await reddit.account.preferences.update({ ...preferences, nightmode: true });
+console.log(account.toString());
+
+const drafts = await reddit.drafts.list();
+const draft = reddit.drafts.reference("draft-id");
+const createdDraft = await reddit.drafts.create({
+  subreddit: "redditdev",
+  title: "Typed draft",
+  selftext: "Hello from TypeScript",
+});
+
+for await (const announcement of reddit.announcements.list({ limit: 10 })) {
+  console.log(announcement.fullname);
+}
+
+const thread = reddit.live.reference("live-thread-id");
+const multis = await reddit.multireddits.mine();
 
 const community = reddit.subreddit("redditdev");
 for await (const item of community.moderation.modqueue({ limit: 10 })) {
@@ -122,8 +125,8 @@ for await (const comment of reddit.subreddit("redditdev").stream.comments({
 
 TRAW uses camel-cased names, options objects, promises, `AsyncIterable`,
 explicit hydration, and `AbortSignal` cancellation where those forms preserve
-the intended Reddit outcome in TypeScript. See
-[TypeScript adaptations](parity/adaptations.md) for the policy and its limits.
+the intended Reddit outcome in TypeScript. Domain helpers are class APIs rather
+than Python-callable objects. See [Compatibility](docs/COMPATIBILITY.md).
 
 ## Compatibility and attribution
 
@@ -132,7 +135,7 @@ supported by the PRAW project or Reddit.
 
 The API and behavior baseline is PRAW 8.0.3, created by the PRAW contributors.
 PRAW is Copyright (c) 2016, Bryce Boe. The exact upstream sources used for
-compatibility work are recorded in [Provenance](parity/provenance.md).
+compatibility work are recorded in [Provenance](docs/PROVENANCE.md).
 
 ## Support
 
@@ -146,4 +149,4 @@ before opening a new report.
 Original TRAW work is provided under the MIT License. Material derived or
 adapted from PRAW 8.0.3 remains subject to PRAW's BSD 2-Clause license and
 attribution requirements. See [Third-party notices](THIRD_PARTY_NOTICES.md) for
-the full BSD notice and [Provenance](parity/provenance.md) for source details.
+the full BSD notice and [Provenance](docs/PROVENANCE.md) for source details.

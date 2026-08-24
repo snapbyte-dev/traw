@@ -21,10 +21,10 @@ request serialization, retries, response parsing, and client shutdown.
 
 ### Construction
 
-`Reddit` accepts either a validated `Config` plus transport or options
-containing `clientId`, explicit `clientSecret` (a string or `null`), and
-`userAgent`. Optional injected clock, header provider, and transport make policy
-testable.
+`Reddit` accepts one options object. Callers provide either a validated `Config`
+or `clientId`, an explicit `clientSecret` (a string or `null`), and `userAgent`.
+The same object accepts an optional clock, header provider, and transport for
+testing and custom integrations.
 
 Configuration may come from constructor options or `TRAW_*` environment
 variables. Reddit and OAuth base URLs must use HTTPS. Non-default endpoint URLs
@@ -86,13 +86,13 @@ close.
 ## Errors and recovery
 
 - Invalid configuration and request combinations fail before network I/O.
-- Transport and timeout failures become `RequestException`; caller cancellation
+- Transport and timeout failures become `RequestError`; caller cancellation
   preserves the abort reason.
 - HTTP statuses map to PRAW/prawcore-style response exceptions. Invalid success
-  JSON becomes `BadJSON`.
-- OAuth token payload and error failures become `BadJSON`, `OAuthException`,
-  `RequestException`, or `ResponseException` as appropriate.
-- Reddit JSON error tuples become `RedditAPIException` during objectification.
+  JSON becomes `BadJsonError`.
+- OAuth token payload and error failures become `BadJsonError`, `OAuthError`,
+  `RequestError`, or `ResponseError` as appropriate.
+- Reddit JSON error tuples become `RedditApiError` during objectification.
 - Retry exhaustion exposes the final eligible failure; there is no durable queue
   or automatic recovery after process exit.
 
@@ -132,5 +132,5 @@ close.
 ## Related docs
 
 - [Architecture](../ARCHITECTURE.md)
-- [Compatibility ledger](compatibility-ledger.md)
+- [Compatibility](../COMPATIBILITY.md)
 - [Media and submission](media-and-submission.md)

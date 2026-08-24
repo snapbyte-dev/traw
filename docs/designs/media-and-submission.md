@@ -98,13 +98,13 @@ with `AbortSignal`.
   variants, and malformed leases fail before or between requests with
   `TypeError`/`RangeError`.
 - S3 XML containing `ProposedSize` and `MaxSizeAllowed` maps to
-  `TooLargeMediaException`.
-- Other S3 `ResponseException` failures map to `ServerError`; non-response
-  failures propagate unchanged.
-- Gallery JSON error tuples become `RedditAPIException`.
-- Processing failures map to `MediaPostFailed`; malformed updates,
+  `MediaTooLargeError`.
+- Other S3 `ResponseError` failures map to `ServerError`; non-response failures
+  propagate unchanged.
+- Gallery JSON error tuples become `RedditApiError`.
+- Processing failures map to `MediaPostFailedError`; malformed updates,
   connection/setup errors, premature close, invalid redirects, and timeout map
-  to `WebSocketException`. Cancellation preserves abort semantics.
+  to `WebSocketError`. Cancellation preserves abort semantics.
 - Runtime retries are safe because bytes and multipart forms are replayable, but
   retry eligibility remains controlled by the session/transport policy.
 
@@ -134,9 +134,8 @@ with `AbortSignal`.
 
 Emoji, stylesheet, and widget media reuse immutable bytes and unauthenticated
 external uploads but use separate lease protocols; see
-[Community administration](community-administration.md). The compatibility
-ledger verifies the required PRAW 8.0.3 media outcomes; that outcome claim does
-not imply Python symbol or API-shape identity.
+[Community administration](community-administration.md). PRAW 8.0.3 is a
+behavioral reference; focused local tests define the supported media boundary.
 
 ## Test ownership
 
@@ -155,4 +154,4 @@ not imply Python symbol or API-shape identity.
 
 - [Architecture](../ARCHITECTURE.md)
 - [Reddit client runtime](reddit-client-runtime.md)
-- [Compatibility ledger](compatibility-ledger.md)
+- [Compatibility](../COMPATIBILITY.md)
