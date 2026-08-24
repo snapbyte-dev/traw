@@ -1,26 +1,33 @@
 # TRAW: TypeScript Reddit API Wrapper
 
-TRAW is an unofficial TypeScript port of
-[PRAW](https://github.com/praw-dev/praw), designed to provide a familiar, typed
-interface to Reddit from modern Node.js applications. The compatibility baseline
-is explicitly pinned to
-[PRAW 8.0.3](https://github.com/praw-dev/praw/tree/v8.0.3).
+TRAW is an unofficial TypeScript implementation of Reddit API capabilities,
+using [PRAW 8.0.3](https://github.com/praw-dev/praw/tree/v8.0.3) as a pinned
+behavioral reference. The goal is equivalent useful outcomes where TypeScript
+and Python differ, not Python symbol identity or line-for-line API-shape parity.
+TRAW intentionally uses TypeScript-native names and contracts where they
+preserve the same observable behavior.
 
-The project is under active development, private, unpublished, and not ready for
-general use. It does not yet provide full PRAW parity. Progress and test
-evidence are tracked in the
-[PRAW 8.0.3 capability ledger](parity/praw-8.0.3.json).
+## Current status
 
-Currently tested scope includes OAuth client, script, refresh-token, web-code,
-and installed-app flows; request dispatch, transport retry, header rate
-limiting, API `RATELIMIT` retry, and response objectification; after- and
-before-cursor async listings and polling streams; lazy top-level model
-factories; recursive submission comment forests and common comment/submission
-mutations; media lease and multipart upload; text, link, poll, image, video,
-GIF, and gallery submission; and selected front-page, inbox, draft,
-announcement, live-thread, multireddit, subreddit discovery, and moderator-note
-helpers. Many PRAW models are name-compatible exports only and remain planned
-until meaningful behavior is implemented and tested.
+The machine-readable [`parity/praw-8.0.3.json`](parity/praw-8.0.3.json) ledger
+verifies all 16 required outcome groups and every scenario they contain. This
+includes:
+
+- current-account profile subreddit objectification;
+- subreddit creation, settings reads and updates, moderator-invite acceptance,
+  and quarantine opt-in/out;
+- site-wide, subreddit-scoped, and redditor-scoped moderator-note workflows;
+- showing crowd-controlled comments; and
+- typed removal messages for comments and submissions.
+
+Outcome parity is the compatibility claim: equivalent observable requests,
+models, errors, pagination, and state transitions within the pinned ledger. It
+does not require Python symbol identity or an identical public API shape. The
+separate 85-export PRAW model manifest is a nonblocking migration inventory; an
+export classification neither adds to nor limits outcome parity.
+
+See the [parity guide](parity/README.md) for status semantics and evidence
+policy. The machine-readable ledger remains the detailed source of truth.
 
 TRAW follows Reddit API constraints, including OAuth, rate limits, and
 appropriate user-agent identification. Applications remain responsible for
@@ -33,30 +40,24 @@ complying with Reddit's current API terms and policies.
 
 ## Development setup
 
-This repository uses pnpm for contributor workflows only. Install dependencies
-from a local checkout:
+From a local checkout:
 
 ```bash
 pnpm install
-```
-
-Passing development checks are:
-
-```bash
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm test:types
 ```
 
-`pnpm parity` and therefore `pnpm check` currently fail while the ledger
-contains `planned` capabilities. They are completion gates, not current progress
-checks.
+`pnpm parity` verifies that every required ledger outcome and scenario satisfies
+the completion rule. The 85-export manifest remains nonblocking.
 
-## Quickstart
+## Examples
 
-The implemented API is asynchronous. Given credentials for a Reddit script
-application, create a client with explicit configuration:
+The examples below are limited to behavior that is currently implemented.
+Network operations return promises; listings and polling streams are
+asynchronous iterables.
 
 ```ts
 import { Reddit } from "traw";
@@ -68,34 +69,29 @@ const reddit = new Reddit({
   password: process.env.REDDIT_PASSWORD!,
   userAgent: "example:traw-demo:v0.1 (by /u/example)",
 });
-```
-
-Network operations return promises, while listings and polling streams are
-asynchronous iterables:
-
-```ts
-const test = reddit.subreddit("test");
-
-await test.submit("Test submission", {
-  kind: "link",
-  url: "https://www.reddit.com/",
-});
-
-const submission = reddit.submission({ id: "5e1az9" });
-await submission.reply("Hello from TypeScript");
 
 for await (const post of reddit.front.hot({ limit: 25 })) {
   console.log(post.title, post.score);
 }
+
+const submission = reddit.submission({ id: "5e1az9" });
+await submission.reply("Hello from TypeScript");
+
+const account = await reddit.account.me();
+console.log(account.toString(), await reddit.account.preferences());
+
+const community = reddit.subreddit("redditdev");
+for await (const item of community.moderation.modqueue({ limit: 10 })) {
+  console.log(item.fullname);
+}
 ```
 
-The standalone polling stream accepts an `AbortSignal` and a listing fetcher:
+Generic polling accepts an `AbortSignal` and a listing fetcher:
 
 ```ts
-const controller = new AbortController();
-
 import { streamGenerator } from "traw";
 
+const controller = new AbortController();
 const posts = streamGenerator(
   ({ limit, before, signal }) =>
     reddit.subreddit("redditdev").new({
@@ -111,17 +107,23 @@ for await (const post of posts) {
 }
 ```
 
-The stream fetcher above uses a submission listing only to demonstrate the
-polling contract; specialized subreddit comment-stream helpers are not yet
-implemented. Consult the parity ledger before relying on a capability.
+Specialized adapters use the same polling contract:
+
+```ts
+for await (const comment of reddit.subreddit("redditdev").stream.comments({
+  skipExisting: true,
+  signal: controller.signal,
+})) {
+  if (comment !== null) console.log(comment.body);
+}
+```
 
 ## TypeScript adaptations
 
-TRAW targets equivalent Reddit behavior rather than line-for-line Python API
-syntax. Important adaptations include camel-cased names, options objects,
-promises for network work, `AsyncIterable` listings and streams, explicit model
-hydration, and `AbortSignal` cancellation. The complete policy is documented in
-[TypeScript adaptations](parity/adaptations.md).
+TRAW uses camel-cased names, options objects, promises, `AsyncIterable`,
+explicit hydration, and `AbortSignal` cancellation where those forms preserve
+the intended Reddit outcome in TypeScript. See
+[TypeScript adaptations](parity/adaptations.md) for the policy and its limits.
 
 ## Compatibility and attribution
 
@@ -129,15 +131,15 @@ TRAW is independently maintained and is not affiliated with, endorsed by, or
 supported by the PRAW project or Reddit.
 
 The API and behavior baseline is PRAW 8.0.3, created by the PRAW contributors.
-PRAW is Copyright (c) 2016, Bryce Boe. The exact upstream sources used to build
-the compatibility ledger are recorded in [Provenance](parity/provenance.md).
+PRAW is Copyright (c) 2016, Bryce Boe. The exact upstream sources used for
+compatibility work are recorded in [Provenance](parity/provenance.md).
 
 ## Support
 
 Use this repository's issue tracker for TRAW bugs and feature requests. General
 Reddit API questions are better directed to Reddit's developer resources or
-[r/redditdev](https://www.reddit.com/r/redditdev/). Please search existing
-issues before opening a new report.
+[r/redditdev](https://www.reddit.com/r/redditdev/). Search existing issues
+before opening a new report.
 
 ## License
 
