@@ -9,13 +9,25 @@ import {
   Redditor,
   Submission,
   Subreddit,
+  UserSubreddit,
 } from "./entities.js";
-import { Media, PostMedia } from "./media.js";
+import {
+  InlineGif,
+  InlineImage,
+  InlineMedia,
+  InlineVideo,
+  Media,
+  PostMedia,
+} from "./media.js";
 
 export {
   Auth,
   Comment,
   Front,
+  InlineGif,
+  InlineImage,
+  InlineMedia,
+  InlineVideo,
   Listing,
   Listing as ListingGenerator,
   Media,
@@ -25,6 +37,7 @@ export {
   Redditor,
   Submission,
   Subreddit,
+  UserSubreddit,
 };
 
 /** Raw Reddit response with forward-compatible access to unmodelled fields. */
@@ -65,26 +78,6 @@ export class StylesheetAsset extends Media {}
 export class StylesheetImage extends Media {}
 export class WidgetMedia extends Media {}
 
-export interface InlineMediaOptions {
-  readonly caption?: string;
-  readonly media: PostMedia;
-}
-
-export class InlineMedia {
-  readonly caption: string | undefined;
-  readonly media: PostMedia;
-  mediaId: string | null = null;
-
-  constructor(options: InlineMediaOptions) {
-    this.caption = options.caption;
-    this.media = options.media;
-  }
-}
-
-export class InlineGif extends InlineMedia {}
-export class InlineImage extends InlineMedia {}
-export class InlineVideo extends InlineMedia {}
-
 export class Announcement extends Submission {}
 export class Collection extends ResponseModel {}
 export class Draft extends ResponseModel {}
@@ -106,7 +99,6 @@ export class Stylesheet extends ResponseModel {}
 export class SubredditMessage extends Message {}
 export class Trophy extends ResponseModel {}
 export class User extends ResponseModel {}
-export class UserSubreddit extends ResponseModel {}
 export class WikiPage extends ResponseModel {}
 
 export class AnnouncementHelper extends ClientContainer {}

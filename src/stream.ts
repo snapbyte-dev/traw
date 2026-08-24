@@ -25,6 +25,16 @@ export interface StreamOptions<T> {
   readonly sleep?: Sleep;
 }
 
+export type ContentStream<T> = AsyncGenerator<T | null>;
+
+/** Bind PRAW-style polling behavior to a newest-first listing function. */
+export function listingStream<T>(
+  fetch: StreamFetcher<T>,
+  options: StreamOptions<T> = {},
+): ContentStream<T> {
+  return streamGenerator(fetch, options);
+}
+
 class BoundedSeen {
   readonly capacity: number;
   #items = new Map<string, true>();

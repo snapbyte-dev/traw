@@ -13,6 +13,7 @@ import {
   type RedditClientLike,
 } from "./models/base.js";
 import { Comment, Message, Redditor, Subreddit } from "./models/entities.js";
+export { SubredditsDomain } from "./domains/subreddits.js";
 
 interface DomainClient extends RedditClientLike {
   readonly readOnly: boolean;
@@ -229,33 +230,6 @@ export class RedditorsDomain {
 
   search(query: string, options: ListingOptions = {}): Listing<Redditor> {
     return new Listing(this.#client, "/users/search", {
-      ...options,
-      params: { ...options.params, q: nonEmpty(query, "query") },
-    });
-  }
-}
-
-export class SubredditsDomain {
-  readonly #client: RedditClientLike;
-
-  constructor(client: RedditClientLike) {
-    this.#client = client;
-  }
-
-  default(options: ListingOptions = {}): Listing<Subreddit> {
-    return new Listing(this.#client, "/subreddits/default/", options);
-  }
-
-  new(options: ListingOptions = {}): Listing<Subreddit> {
-    return new Listing(this.#client, "/subreddits/new/", options);
-  }
-
-  popular(options: ListingOptions = {}): Listing<Subreddit> {
-    return new Listing(this.#client, "/subreddits/popular/", options);
-  }
-
-  search(query: string, options: ListingOptions = {}): Listing<Subreddit> {
-    return new Listing(this.#client, "/subreddits/search/", {
       ...options,
       params: { ...options.params, q: nonEmpty(query, "query") },
     });

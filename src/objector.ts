@@ -14,6 +14,11 @@ import {
   type EntityContext,
 } from "./models/entities.js";
 import { RedditAPIException, type RedditError } from "./exceptions.js";
+import { LiveContributor, LiveThread } from "./models/live.js";
+import {
+  parseMultireddit,
+  type MultiredditClient,
+} from "./models/multireddit.js";
 
 export type ModelParser = (
   client: RedditClientLike,
@@ -22,6 +27,10 @@ export type ModelParser = (
 ) => unknown;
 
 const DEFAULT_PARSERS: Readonly<Record<string, ModelParser>> = {
+  LabeledMulti: (client, data) =>
+    parseMultireddit(client as MultiredditClient, data),
+  LiveContributor: (client, data) => new LiveContributor(client, data),
+  LiveThread: (client, data) => new LiveThread(client, data),
   more: (client, data, context) => objectifyMoreComments(client, data, context),
   t1: (client, data, context) => objectifyComment(client, data, context),
   t2: (client, data, context) => objectifyRedditor(client, data, context),
@@ -29,6 +38,14 @@ const DEFAULT_PARSERS: Readonly<Record<string, ModelParser>> = {
   t4: (client, data) => new Message(client, data),
   t5: (client, data, context) => objectifySubreddit(client, data, context),
 };
+
+const REGISTERED_PARSERS: Record<string, ModelParser> = {};
+
+export function registerModelParsers(
+  parsers: Readonly<Record<string, ModelParser>>,
+): void {
+  Object.assign(REGISTERED_PARSERS, parsers);
+}
 
 function shapeKind(data: RawData): string | undefined {
   if (
@@ -64,7 +81,7 @@ export class Objector {
     parsers: Readonly<Record<string, ModelParser>> = {},
   ) {
     this.client = client;
-    this.parsers = { ...DEFAULT_PARSERS, ...parsers };
+    this.parsers = { ...DEFAULT_PARSERS, ...REGISTERED_PARSERS, ...parsers };
   }
 
   objectify(value: unknown): unknown {

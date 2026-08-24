@@ -10,7 +10,7 @@ import {
   RedditorContent,
   createSubredditHelper,
 } from "../src/helpers.js";
-import { Submission, Subreddit } from "../src/models/entities.js";
+import { Comment, Submission, Subreddit } from "../src/models/entities.js";
 
 function client() {
   return { request: vi.fn() };
@@ -108,6 +108,217 @@ describe("listing helpers", () => {
     expect(() => content.top({ timeFilter: "bad" as "all" })).toThrow(
       RangeError,
     );
+  });
+
+  it("constructs best, controversial, comment, search, and private history listings", () => {
+    const api = client();
+    const front = new Front(api);
+    const subreddit = new ListingSubreddit(api, "type script");
+    const redditor = new ListingRedditor(api, "some user");
+
+    expect(front.best()).toMatchObject({ url: "/best" });
+    expect(front.controversial({ timeFilter: "week" })).toMatchObject({
+      params: { t: "week" },
+      url: "/controversial",
+    });
+    expect(subreddit.controversial()).toMatchObject({
+      params: { t: "all" },
+      url: "/r/type%20script/controversial",
+    });
+    expect(subreddit.comments()).toMatchObject({
+      url: "/r/type%20script/comments",
+    });
+    expect(
+      subreddit.search(" typed query ", {
+        params: { raw_json: 1 },
+        sort: "comments",
+        syntax: "plain",
+        timeFilter: "month",
+      }),
+    ).toMatchObject({
+      params: {
+        q: "typed query",
+        raw_json: 1,
+        restrict_sr: true,
+        sort: "comments",
+        syntax: "plain",
+        t: "month",
+      },
+      url: "/r/type%20script/search",
+    });
+    expect(
+      new ListingSubreddit(api, "all").search("query").params,
+    ).toMatchObject({
+      restrict_sr: false,
+    });
+    expect(redditor.controversial({ timeFilter: "day" })).toMatchObject({
+      params: { sort: "controversial", t: "day" },
+    });
+    for (const [name, listing] of [
+      ["saved", redditor.saved()],
+      ["hidden", redditor.hidden()],
+      ["upvoted", redditor.upvoted()],
+      ["downvoted", redditor.downvoted()],
+    ] as const) {
+      expect(listing.url).toBe(`/user/some%20user/${name}`);
+    }
+
+    expect(() => subreddit.search(" ")).toThrow("query cannot be empty");
+    expect(() => subreddit.search("q", { sort: "bad" as "hot" })).toThrow(
+      "Invalid search sort",
+    );
+    expect(() => subreddit.search("q", { syntax: "bad" as "plain" })).toThrow(
+      "Invalid search syntax",
+    );
+  });
+
+  it("reads sticky, post requirements, and traffic with cancellation and validation", async () => {
+    const api = client();
+    api.request
+      .mockResolvedValueOnce({
+        kind: "Listing",
+        data: { children: [{ kind: "t3", data: { id: "sticky" } }] },
+      })
+      .mockResolvedValueOnce({ is_flair_required: true })
+      .mockResolvedValueOnce({
+        day: [[1, 2]],
+        hour: [[1, 2]],
+        month: [[1, 2]],
+      });
+    const subreddit = new ListingSubreddit(api, "test");
+    const signal = new AbortController().signal;
+
+    await expect(
+      subreddit.sticky({ number: 2, signal }),
+    ).resolves.toBeInstanceOf(Submission);
+    await expect(subreddit.postRequirements({ signal })).resolves.toEqual({
+      is_flair_required: true,
+    });
+    await expect(subreddit.traffic({ signal })).resolves.toEqual({
+      day: [[1, 2]],
+      hour: [[1, 2]],
+      month: [[1, 2]],
+    });
+    expect(api.request).toHaveBeenNthCalledWith(1, {
+      method: "GET",
+      params: { num: 2 },
+      path: "/r/test/about/sticky/",
+      signal,
+    });
+    expect(api.request).toHaveBeenNthCalledWith(2, {
+      method: "GET",
+      path: "/api/v1/test/post_requirements",
+      signal,
+    });
+    expect(api.request).toHaveBeenNthCalledWith(3, {
+      method: "GET",
+      path: "/r/test/about/traffic/",
+      signal,
+    });
+
+    await expect(subreddit.sticky({ number: 3 as 1 })).rejects.toThrow(
+      "must be 1 or 2",
+    );
+    api.request.mockResolvedValueOnce({ day: [], hour: [] });
+    await expect(subreddit.traffic()).rejects.toThrow("month array");
+    api.request.mockResolvedValueOnce(null);
+    await expect(subreddit.postRequirements()).rejects.toThrow("invalid");
+    api.request.mockResolvedValueOnce({});
+    await expect(subreddit.sticky()).rejects.toThrow("no Submission");
+
+    const controller = new AbortController();
+    controller.abort(new Error("stop"));
+    await expect(
+      subreddit.postRequirements({ signal: controller.signal }),
+    ).rejects.toThrow("stop");
+  });
+
+  it("binds subreddit and redditor streams to newest listings", async () => {
+    const api = client();
+    api.request
+      .mockResolvedValueOnce({
+        kind: "Listing",
+        data: {
+          after: null,
+          children: [{ kind: "t1", data: { id: "c", parent_id: "t3_p" } }],
+        },
+      })
+      .mockResolvedValueOnce({
+        kind: "Listing",
+        data: {
+          after: null,
+          children: [{ kind: "t3", data: { id: "p" } }],
+        },
+      })
+      .mockResolvedValueOnce({
+        kind: "Listing",
+        data: {
+          after: null,
+          children: [{ kind: "t3", data: { id: "subreddit-post" } }],
+        },
+      })
+      .mockResolvedValueOnce({
+        kind: "Listing",
+        data: {
+          after: null,
+          children: [{ kind: "t1", data: { id: "user-c", parent_id: "t3_p" } }],
+        },
+      });
+    const subreddit = new ListingSubreddit(api, "test");
+    const redditor = new ListingRedditor(api, "user");
+    const commentStream = subreddit.stream.comments({ pauseAfter: -1 });
+    const submissionStream = redditor.stream.submissions({ pauseAfter: -1 });
+    const subredditSubmissions = subreddit.stream.submissions({
+      pauseAfter: -1,
+    });
+    const redditorComments = redditor.stream.comments({ pauseAfter: -1 });
+
+    await expect(commentStream.next()).resolves.toMatchObject({
+      value: expect.any(Comment),
+    });
+    await expect(submissionStream.next()).resolves.toMatchObject({
+      value: expect.any(Submission),
+    });
+    await expect(subredditSubmissions.next()).resolves.toMatchObject({
+      value: expect.any(Submission),
+    });
+    await expect(redditorComments.next()).resolves.toMatchObject({
+      value: expect.any(Comment),
+    });
+    expect(api.request).toHaveBeenNthCalledWith(1, {
+      method: "GET",
+      params: { limit: 100 },
+      path: "/r/test/comments",
+    });
+    expect(api.request).toHaveBeenNthCalledWith(2, {
+      method: "GET",
+      params: { limit: 100, sort: "new" },
+      path: "/user/user/submitted",
+    });
+    expect(api.request).toHaveBeenNthCalledWith(3, {
+      method: "GET",
+      params: { limit: 100 },
+      path: "/r/test/new",
+    });
+    expect(api.request).toHaveBeenNthCalledWith(4, {
+      method: "GET",
+      params: { limit: 100, sort: "new" },
+      path: "/user/user/comments",
+    });
+    await commentStream.return(undefined);
+    await submissionStream.return(undefined);
+    await subredditSubmissions.return(undefined);
+    await redditorComments.return(undefined);
+  });
+
+  it("defers private-history authorization failures until iteration", async () => {
+    const api = client();
+    const forbidden = new Error("Forbidden");
+    api.request.mockRejectedValue(forbidden);
+    const saved = new ListingRedditor(api, "other-user").saved();
+
+    expect(api.request).not.toHaveBeenCalled();
+    await expect(collect(saved)).rejects.toBe(forbidden);
   });
 });
 

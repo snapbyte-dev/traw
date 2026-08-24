@@ -7,9 +7,12 @@ import {
   Redditor,
   Submission,
   Subreddit,
+  UserSubreddit,
 } from "../src/models/entities.js";
 import { RedditAPIException } from "../src/exceptions.js";
 import { Objector, objectify } from "../src/objector.js";
+import { LiveContributor, LiveThread } from "../src/models/live.js";
+import { Multireddit } from "../src/models/multireddit.js";
 
 describe("Objector", () => {
   const client = { request: vi.fn() };
@@ -87,6 +90,22 @@ describe("Objector", () => {
     ]);
   });
 
+  it("parses context-free lifecycle models from wrapped responses", () => {
+    const objector = new Objector(client);
+    expect(
+      objector.objectify({ kind: "LiveThread", data: { id: "incident" } }),
+    ).toBeInstanceOf(LiveThread);
+    expect(
+      objector.objectify({ kind: "LiveContributor", data: { name: "alice" } }),
+    ).toBeInstanceOf(LiveContributor);
+    expect(
+      objector.objectify({
+        kind: "LabeledMulti",
+        data: { name: "dev", path: "/user/alice/m/dev" },
+      }),
+    ).toBeInstanceOf(Multireddit);
+  });
+
   it("recognizes every unwrapped entity shape", () => {
     const objector = new Objector(client);
     expect(objector.objectify({ display_name: "community" })).toBeInstanceOf(
@@ -104,6 +123,32 @@ describe("Objector", () => {
     expect(objector.objectify({ name: "b", link_karma: 0 })).toBeInstanceOf(
       Redditor,
     );
+  });
+
+  it("objectifies profile subreddits nested in redditors", () => {
+    const objector = new Objector(client);
+    const wrapped = objector.objectify({
+      kind: "t2",
+      data: {
+        name: "alice",
+        subreddit: { display_name: "u_alice", over18: false },
+      },
+    });
+    const unwrapped = objector.objectify({
+      name: "bob",
+      link_karma: 1,
+      subreddit: { display_name: "u_bob" },
+    });
+
+    expect(wrapped).toBeInstanceOf(Redditor);
+    expect((wrapped as Redditor).subreddit).toBeInstanceOf(UserSubreddit);
+    expect((unwrapped as Redditor).subreddit).toBeInstanceOf(UserSubreddit);
+    expect(() =>
+      objector.objectify({
+        kind: "t2",
+        data: { name: "invalid", subreddit: "u_invalid" },
+      }),
+    ).toThrow("invalid user subreddit");
   });
 
   it("keeps malformed wrappers and listing shapes while objectifying nested values", () => {
