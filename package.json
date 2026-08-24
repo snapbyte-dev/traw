@@ -1,0 +1,33 @@
+{
+  "name": "traw",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Unofficial TypeScript port of PRAW",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.23.0",
+  "scripts": {
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:types && pnpm parity",
+    "coverage": "vitest run --coverage",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings 0",
+    "parity": "node scripts/check-parity.mjs",
+    "test": "vitest run",
+    "test:types": "tsc --project tsconfig.types.json",
+    "test:watch": "vitest",
+    "typecheck": "tsc --project tsconfig.json"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.2.0",
+    "@vitest/coverage-v8": "4.1.11",
+    "eslint": "10.9.0",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.11"
+  }
+}
