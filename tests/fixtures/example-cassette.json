@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "policy": {
+    "authorization": "ignore"
+  },
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://example.test/items?tag=beta&limit=2&tag=alpha",
+        "headers": {
+          "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "x-request-id": "synthetic-1"
+        },
+        "body": {
+          "encoding": "utf8",
+          "value": "name=fixture&enabled=true"
+        }
+      },
+      "response": {
+        "status": 201,
+        "statusText": "Created",
+        "url": "https://example.test/items/1",
+        "headers": {
+          "content-type": "application/json",
+          "x-fixture": "synthetic"
+        },
+        "body": "{\"id\":1,\"name\":\"fixture\"}"
+      }
+    }
+  ]
+}
