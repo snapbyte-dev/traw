@@ -1,0 +1,976 @@
+{
+  "baseline": "praw@8.0.3",
+  "source": "https://github.com/praw-dev/praw/tree/v8.0.3",
+  "status": "in-progress",
+  "statusDefinitions": {
+    "planned": "Required by the baseline but not yet verified as implemented.",
+    "implemented": "Implemented with equivalent behavior and passing verification.",
+    "adapted": "Implemented with an intentional TypeScript adaptation documented in parity/adaptations.md."
+  },
+  "notes": [
+    "The ledger is a completion checklist, not a claim of current support.",
+    "scripts/check-parity.mjs intentionally fails while any capability is planned.",
+    "Every name exported by praw.models.__all__ in PRAW 8.0.3 has an individual entry.",
+    "Grouped workflow entries supplement model-name entries without treating export-only model shells as complete."
+  ],
+  "capabilities": [
+    {
+      "symbol": "praw.Reddit",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Construct and configure the primary Reddit API client.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.read_only",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Report and select whether the active authorization is read-only.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.announcements",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "List announcements and mark all announcements read through an asynchronous domain helper.",
+      "sourcePath": "src/domains.ts",
+      "testPath": "tests/domains.test.ts"
+    },
+    {
+      "symbol": "Reddit.auth",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Expose authorization URL, code exchange, implicit grant, scope, and token operations.",
+      "sourcePath": "src/core/auth.ts",
+      "testPath": "tests/core/auth.test.ts"
+    },
+    {
+      "symbol": "Reddit.drafts",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "List, reference, and create authenticated-user drafts through an asynchronous domain helper.",
+      "sourcePath": "src/domains.ts",
+      "testPath": "tests/domains.test.ts"
+    },
+    {
+      "symbol": "Reddit.user",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Resolve and cache the authenticated account asynchronously.",
+      "sourcePath": "src/domains.ts",
+      "testPath": "tests/domains.test.ts"
+    },
+    {
+      "symbol": "Reddit.front",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Access asynchronous hot, new, rising, and top front-page listings.",
+      "sourcePath": "src/helpers.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.inbox",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Access inbox listings and bulk read/unread operations asynchronously.",
+      "sourcePath": "src/domains.ts",
+      "testPath": "tests/domains.test.ts"
+    },
+    {
+      "symbol": "Reddit.subreddit",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Create lazy subreddit references and listing helpers, including combined subreddit names.",
+      "sourcePath": "src/helpers.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.redditor",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Create lazy redditor references by name with overview, comment, and submission listings.",
+      "sourcePath": "src/helpers.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.submission",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Create lazy submission references from IDs, Reddit comment-page URLs, and redd.it short links.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.comment",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Create lazy comment references from IDs, Reddit comment permalinks, and tested redd.it URL input.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.info",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Fetch objects in 100-item batches by fullname, subreddit, or URL through AsyncIterable.",
+      "sourcePath": "src/helpers.ts",
+      "testPath": "tests/helpers.test.ts"
+    },
+    {
+      "symbol": "Reddit.live",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Create live-thread references and live threads through an asynchronous helper.",
+      "sourcePath": "src/domains.ts",
+      "testPath": "tests/domains.test.ts"
+    },
+    {
+      "symbol": "Reddit.multireddit",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Create multireddit references for an owner and name.",
+      "sourcePath": "src/domains.ts",
+      "testPath": "tests/domains.test.ts"
+    },
+    {
+      "symbol": "Reddit.notes",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "List moderator notes for redditor and subreddit pairs asynchronously.",
+      "sourcePath": "src/domains.ts",
+      "testPath": "tests/domains.test.ts"
+    },
+    {
+      "symbol": "Reddit.redditors",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Expose asynchronous newest-redditor and redditor-search listings.",
+      "sourcePath": "src/domains.ts",
+      "testPath": "tests/domains.test.ts"
+    },
+    {
+      "symbol": "Reddit.subreddits",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Expose asynchronous default, new, popular, and search subreddit discovery listings.",
+      "sourcePath": "src/domains.ts",
+      "testPath": "tests/domains.test.ts"
+    },
+    {
+      "symbol": "Reddit.domain",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Create domain-filtered listing helpers.",
+      "sourcePath": "src/helpers.ts",
+      "testPath": "tests/helpers.test.ts"
+    },
+    {
+      "symbol": "Reddit.username_available",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Check username availability asynchronously.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.request",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Send a raw asynchronous Reddit request through the authenticated session.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.get",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Send and objectify an asynchronous GET request.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.post",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Send and objectify asynchronous POST requests with form, JSON, or replayable bodies and bounded Reddit API RATELIMIT retries.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.put",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Send and objectify an asynchronous PUT request.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.patch",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Send and objectify an asynchronous PATCH request.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Reddit.delete",
+      "area": "top-level-reddit",
+      "status": "adapted",
+      "description": "Send and objectify an asynchronous DELETE request.",
+      "sourcePath": "src/reddit.ts",
+      "testPath": "tests/reddit.test.ts"
+    },
+    {
+      "symbol": "Auth.limits",
+      "area": "auth-core",
+      "status": "adapted",
+      "description": "Expose remaining and used request counts observed by the active session rate limiter.",
+      "sourcePath": "src/core/auth.ts",
+      "testPath": "tests/core/auth.test.ts"
+    },
+    {
+      "symbol": "Auth.authorize",
+      "area": "auth-core",
+      "status": "adapted",
+      "description": "Exchange a web-application authorization code and activate the resulting authorization asynchronously.",
+      "sourcePath": "src/core/auth.ts",
+      "testPath": "tests/core/auth.test.ts"
+    },
+    {
+      "symbol": "Auth.implicit",
+      "area": "auth-core",
+      "status": "adapted",
+      "description": "Activate an installed-application implicit authorization using an options object.",
+      "sourcePath": "src/core/auth.ts",
+      "testPath": "tests/core/auth.test.ts"
+    },
+    {
+      "symbol": "Auth.scopes",
+      "area": "auth-core",
+      "status": "adapted",
+      "description": "Refresh authorization when needed and return granted scopes asynchronously.",
+      "sourcePath": "src/core/auth.ts",
+      "testPath": "tests/core/auth.test.ts"
+    },
+    {
+      "symbol": "Auth.url",
+      "area": "auth-core",
+      "status": "adapted",
+      "description": "Generate code-flow or installed-app implicit authorization URLs from an options object.",
+      "sourcePath": "src/core/auth.ts",
+      "testPath": "tests/core/auth.test.ts"
+    },
+    {
+      "symbol": "Core.request_dispatch",
+      "area": "auth-core",
+      "status": "adapted",
+      "description": "Serialize parameters and replayable bodies, send asynchronous requests, and decode Reddit responses.",
+      "sourcePath": "src/core/session.ts",
+      "testPath": "tests/core/session.test.ts"
+    },
+    {
+      "symbol": "Core.rate_limit",
+      "area": "auth-core",
+      "status": "implemented",
+      "description": "Observe Reddit rate-limit headers and delay requests when required.",
+      "sourcePath": "src/core/rate-limiter.ts",
+      "testPath": "tests/core/rate-limiter.test.ts"
+    },
+    {
+      "symbol": "Core.retry",
+      "area": "auth-core",
+      "status": "implemented",
+      "description": "Retry eligible transport, authorization, and server failures with bounded waits.",
+      "sourcePath": "src/core/retry.ts",
+      "testPath": "tests/core/session.test.ts"
+    },
+    {
+      "symbol": "Core.configuration",
+      "area": "auth-core",
+      "status": "adapted",
+      "description": "Validate constructor and TRAW environment configuration, including user agents and endpoint overrides.",
+      "sourcePath": "src/config.ts",
+      "testPath": "tests/config.test.ts"
+    },
+    {
+      "symbol": "Core.object_hydration",
+      "area": "auth-core",
+      "status": "adapted",
+      "description": "Hydrate lazy Reddit objects and refresh loaded state asynchronously.",
+      "sourcePath": "src/models/base.ts",
+      "testPath": "tests/models.test.ts"
+    },
+    {
+      "symbol": "Core.object_identity",
+      "area": "auth-core",
+      "status": "adapted",
+      "description": "Provide stable fullname-based identity and explicit equality semantics.",
+      "sourcePath": "src/models/base.ts",
+      "testPath": "tests/models-edge-cases.test.ts"
+    },
+    {
+      "symbol": "Listing.pagination",
+      "area": "listing-stream",
+      "status": "adapted",
+      "description": "Traverse after- and before-cursor response shapes while honoring total limits, request batch sizes, initial cursors, and termination conditions.",
+      "sourcePath": "src/listing.ts",
+      "testPath": "tests/listing.test.ts"
+    },
+    {
+      "symbol": "Listing.filters",
+      "area": "listing-stream",
+      "status": "adapted",
+      "description": "Support tested hot, new, rising, top, time-filter, and caller-supplied listing parameters.",
+      "sourcePath": "src/helpers.ts",
+      "testPath": "tests/helpers.test.ts"
+    },
+    {
+      "symbol": "Listing.async_iterable",
+      "area": "listing-stream",
+      "status": "adapted",
+      "description": "Expose single-use network-backed listings through JavaScript AsyncIterable.",
+      "sourcePath": "src/listing.ts",
+      "testPath": "tests/listing.test.ts"
+    },
+    {
+      "symbol": "Listing.comments",
+      "area": "listing-stream",
+      "status": "adapted",
+      "description": "Represent nested comment forests, flatten trees, and asynchronously replace MoreComments placeholders with bounded and thresholded expansion.",
+      "sourcePath": "src/models/comment-forest.ts",
+      "testPath": "tests/models-edge-cases.test.ts"
+    },
+    {
+      "symbol": "Media.upload_submission",
+      "area": "media-submission",
+      "status": "adapted",
+      "description": "Lease and multipart-upload replayable media, then submit tested text, link, poll, image, video, GIF, and gallery post variants.",
+      "sourcePath": "src/models/media.ts",
+      "testPath": "tests/models-edge-cases.test.ts"
+    },
+    {
+      "symbol": "Submission.comment_forest",
+      "area": "comments",
+      "status": "adapted",
+      "description": "Hydrate a submission and its recursive comment forest with configurable sort and limit, stable object relationships, continuations, and MoreComments expansion.",
+      "sourcePath": "src/models/comment-forest.ts",
+      "testPath": "tests/models-edge-cases.test.ts"
+    },
+    {
+      "symbol": "Stream.polling",
+      "area": "listing-stream",
+      "status": "adapted",
+      "description": "Poll asynchronous listing fetchers without yielding duplicate items.",
+      "sourcePath": "src/stream.ts",
+      "testPath": "tests/stream.test.ts"
+    },
+    {
+      "symbol": "Stream.skip_existing",
+      "area": "listing-stream",
+      "status": "adapted",
+      "description": "Optionally establish a stream baseline without yielding existing items.",
+      "sourcePath": "src/stream.ts",
+      "testPath": "tests/stream.test.ts"
+    },
+    {
+      "symbol": "Stream.pause_after",
+      "area": "listing-stream",
+      "status": "adapted",
+      "description": "Signal idle polling intervals with null using PRAW-equivalent pause behavior.",
+      "sourcePath": "src/stream.ts",
+      "testPath": "tests/stream.test.ts"
+    },
+    {
+      "symbol": "Stream.cancellation",
+      "area": "listing-stream",
+      "status": "adapted",
+      "description": "Cancel polling requests and waits with AbortSignal.",
+      "sourcePath": "src/stream.ts",
+      "testPath": "tests/stream.test.ts"
+    },
+    {
+      "symbol": "Exceptions.praw",
+      "area": "exceptions",
+      "status": "implemented",
+      "description": "Provide the base PRAW and client-side exception hierarchy.",
+      "sourcePath": "src/exceptions.ts",
+      "testPath": "tests/exceptions.test.ts"
+    },
+    {
+      "symbol": "Exceptions.reddit_api",
+      "area": "exceptions",
+      "status": "adapted",
+      "description": "Preserve Reddit API error type, message, field, grouped failures, and explicit value equality.",
+      "sourcePath": "src/exceptions.ts",
+      "testPath": "tests/exceptions.test.ts"
+    },
+    {
+      "symbol": "Exceptions.validation",
+      "area": "exceptions",
+      "status": "implemented",
+      "description": "Represent invalid URLs, auth modes, flair IDs, object state, and media size.",
+      "sourcePath": "src/exceptions.ts",
+      "testPath": "tests/exceptions.test.ts"
+    },
+    {
+      "symbol": "Exceptions.auth_transport",
+      "area": "exceptions",
+      "status": "implemented",
+      "description": "Represent OAuth, request, response, and connection failures from the core layer.",
+      "sourcePath": "src/exceptions.ts",
+      "testPath": "tests/exceptions.test.ts"
+    },
+    {
+      "symbol": "Exceptions.http",
+      "area": "exceptions",
+      "status": "implemented",
+      "description": "Map forbidden, not-found, conflict, redirect, server, and rate-limit responses.",
+      "sourcePath": "src/core/session.ts",
+      "testPath": "tests/core/session.test.ts"
+    },
+    {
+      "symbol": "Exceptions.websocket_media",
+      "area": "exceptions",
+      "status": "implemented",
+      "description": "Represent WebSocket and asynchronous media-post failures.",
+      "sourcePath": "src/exceptions.ts",
+      "testPath": "tests/exceptions.test.ts"
+    },
+    {
+      "symbol": "praw.models.Announcement",
+      "area": "models",
+      "status": "planned",
+      "description": "Announcement model export."
+    },
+    {
+      "symbol": "praw.models.AnnouncementHelper",
+      "area": "models",
+      "status": "planned",
+      "description": "Announcement creation and lookup helper export."
+    },
+    {
+      "symbol": "praw.models.AnnouncementListing",
+      "area": "models",
+      "status": "planned",
+      "description": "Announcement listing export."
+    },
+    {
+      "symbol": "praw.models.Auth",
+      "area": "models",
+      "status": "adapted",
+      "description": "OAuth authorization helper with asynchronous code exchange and scope retrieval.",
+      "sourcePath": "src/core/auth.ts",
+      "testPath": "tests/core/auth.test.ts"
+    },
+    {
+      "symbol": "praw.models.Button",
+      "area": "models",
+      "status": "planned",
+      "description": "Button widget item export."
+    },
+    {
+      "symbol": "praw.models.ButtonWidget",
+      "area": "models",
+      "status": "planned",
+      "description": "Button widget export."
+    },
+    {
+      "symbol": "praw.models.Calendar",
+      "area": "models",
+      "status": "planned",
+      "description": "Calendar widget export."
+    },
+    {
+      "symbol": "praw.models.CalendarConfiguration",
+      "area": "models",
+      "status": "planned",
+      "description": "Calendar widget configuration export."
+    },
+    {
+      "symbol": "praw.models.Collection",
+      "area": "models",
+      "status": "planned",
+      "description": "Submission collection export."
+    },
+    {
+      "symbol": "praw.models.Comment",
+      "area": "models",
+      "status": "adapted",
+      "description": "Lazy and response-backed Reddit comment with hydration, identity, voting, reply, edit, delete, save, unsave, and report mutations.",
+      "sourcePath": "src/models/entities.ts",
+      "testPath": "tests/model-capabilities.test.ts"
+    },
+    {
+      "symbol": "praw.models.CommunityList",
+      "area": "models",
+      "status": "planned",
+      "description": "Community-list widget export."
+    },
+    {
+      "symbol": "praw.models.CustomWidget",
+      "area": "models",
+      "status": "planned",
+      "description": "Custom sidebar widget export."
+    },
+    {
+      "symbol": "praw.models.DomainListing",
+      "area": "models",
+      "status": "planned",
+      "description": "Domain-filtered listing export."
+    },
+    {
+      "symbol": "praw.models.Draft",
+      "area": "models",
+      "status": "planned",
+      "description": "Submission draft export."
+    },
+    {
+      "symbol": "praw.models.DraftHelper",
+      "area": "models",
+      "status": "planned",
+      "description": "Draft creation helper export."
+    },
+    {
+      "symbol": "praw.models.DraftList",
+      "area": "models",
+      "status": "planned",
+      "description": "Authenticated user's draft list export."
+    },
+    {
+      "symbol": "praw.models.Emoji",
+      "area": "models",
+      "status": "planned",
+      "description": "Subreddit emoji export."
+    },
+    {
+      "symbol": "praw.models.EmojiMedia",
+      "area": "models",
+      "status": "planned",
+      "description": "Emoji upload media export."
+    },
+    {
+      "symbol": "praw.models.Front",
+      "area": "models",
+      "status": "adapted",
+      "description": "Asynchronous hot, new, rising, and top front-page listing helper.",
+      "sourcePath": "src/helpers.ts",
+      "testPath": "tests/helpers.test.ts"
+    },
+    {
+      "symbol": "praw.models.Hover",
+      "area": "models",
+      "status": "planned",
+      "description": "Widget hover-state data export."
+    },
+    {
+      "symbol": "praw.models.IDCard",
+      "area": "models",
+      "status": "planned",
+      "description": "ID-card widget export."
+    },
+    {
+      "symbol": "praw.models.Image",
+      "area": "models",
+      "status": "planned",
+      "description": "Widget image item export."
+    },
+    {
+      "symbol": "praw.models.ImageData",
+      "area": "models",
+      "status": "planned",
+      "description": "Widget image metadata export."
+    },
+    {
+      "symbol": "praw.models.ImageWidget",
+      "area": "models",
+      "status": "planned",
+      "description": "Image widget export."
+    },
+    {
+      "symbol": "praw.models.Inbox",
+      "area": "models",
+      "status": "planned",
+      "description": "Authenticated inbox helper export."
+    },
+    {
+      "symbol": "praw.models.InlineGif",
+      "area": "models",
+      "status": "planned",
+      "description": "Inline GIF media export."
+    },
+    {
+      "symbol": "praw.models.InlineImage",
+      "area": "models",
+      "status": "planned",
+      "description": "Inline image media export."
+    },
+    {
+      "symbol": "praw.models.InlineMedia",
+      "area": "models",
+      "status": "planned",
+      "description": "Base inline media export."
+    },
+    {
+      "symbol": "praw.models.InlineVideo",
+      "area": "models",
+      "status": "planned",
+      "description": "Inline video media export."
+    },
+    {
+      "symbol": "praw.models.Listing",
+      "area": "models",
+      "status": "adapted",
+      "description": "Single-use asynchronous Reddit listing export.",
+      "sourcePath": "src/listing.ts",
+      "testPath": "tests/listing.test.ts"
+    },
+    {
+      "symbol": "praw.models.ListingGenerator",
+      "area": "models",
+      "status": "adapted",
+      "description": "Alias of the asynchronous paginated Listing implementation.",
+      "sourcePath": "src/listing.ts",
+      "testPath": "tests/listing.test.ts"
+    },
+    {
+      "symbol": "praw.models.LiveHelper",
+      "area": "models",
+      "status": "planned",
+      "description": "Live-thread creation helper export."
+    },
+    {
+      "symbol": "praw.models.LiveThread",
+      "area": "models",
+      "status": "planned",
+      "description": "Reddit live thread export."
+    },
+    {
+      "symbol": "praw.models.LiveUpdate",
+      "area": "models",
+      "status": "planned",
+      "description": "Live-thread update export."
+    },
+    {
+      "symbol": "praw.models.Media",
+      "area": "models",
+      "status": "adapted",
+      "description": "Replayable byte-backed uploaded media with MIME and size validation.",
+      "sourcePath": "src/models/media.ts",
+      "testPath": "tests/model-capabilities.test.ts"
+    },
+    {
+      "symbol": "praw.models.Menu",
+      "area": "models",
+      "status": "planned",
+      "description": "Menu widget export."
+    },
+    {
+      "symbol": "praw.models.MenuLink",
+      "area": "models",
+      "status": "planned",
+      "description": "Menu link item export."
+    },
+    {
+      "symbol": "praw.models.Message",
+      "area": "models",
+      "status": "adapted",
+      "description": "Lazy and response-backed private message with hydration, identity, and fullname behavior.",
+      "sourcePath": "src/models/entities.ts",
+      "testPath": "tests/models-edge-cases.test.ts"
+    },
+    {
+      "symbol": "praw.models.ModAction",
+      "area": "models",
+      "status": "planned",
+      "description": "Moderator log action export."
+    },
+    {
+      "symbol": "praw.models.ModNote",
+      "area": "models",
+      "status": "planned",
+      "description": "Moderator note export."
+    },
+    {
+      "symbol": "praw.models.ModeratedList",
+      "area": "models",
+      "status": "planned",
+      "description": "Moderated subreddit list export."
+    },
+    {
+      "symbol": "praw.models.ModeratorListing",
+      "area": "models",
+      "status": "planned",
+      "description": "Subreddit moderator listing export."
+    },
+    {
+      "symbol": "praw.models.ModeratorsWidget",
+      "area": "models",
+      "status": "planned",
+      "description": "Moderators sidebar widget export."
+    },
+    {
+      "symbol": "praw.models.ModmailAction",
+      "area": "models",
+      "status": "planned",
+      "description": "Modmail action export."
+    },
+    {
+      "symbol": "praw.models.ModmailConversation",
+      "area": "models",
+      "status": "planned",
+      "description": "Modmail conversation export."
+    },
+    {
+      "symbol": "praw.models.ModmailConversationsListing",
+      "area": "models",
+      "status": "planned",
+      "description": "Modmail conversation listing export."
+    },
+    {
+      "symbol": "praw.models.ModmailMessage",
+      "area": "models",
+      "status": "planned",
+      "description": "Message within a modmail conversation export."
+    },
+    {
+      "symbol": "praw.models.MoreComments",
+      "area": "models",
+      "status": "adapted",
+      "description": "Deferred comment-tree branch with asynchronous child expansion and explicit identity.",
+      "sourcePath": "src/models/entities.ts",
+      "testPath": "tests/models-edge-cases.test.ts"
+    },
+    {
+      "symbol": "praw.models.Multireddit",
+      "area": "models",
+      "status": "planned",
+      "description": "Multireddit export."
+    },
+    {
+      "symbol": "praw.models.MultiredditHelper",
+      "area": "models",
+      "status": "planned",
+      "description": "Multireddit creation helper export."
+    },
+    {
+      "symbol": "praw.models.PollData",
+      "area": "models",
+      "status": "planned",
+      "description": "Submission poll data export."
+    },
+    {
+      "symbol": "praw.models.PollOption",
+      "area": "models",
+      "status": "planned",
+      "description": "Poll choice export."
+    },
+    {
+      "symbol": "praw.models.PostFlairWidget",
+      "area": "models",
+      "status": "planned",
+      "description": "Post-flair sidebar widget export."
+    },
+    {
+      "symbol": "praw.models.PostMedia",
+      "area": "models",
+      "status": "adapted",
+      "description": "Replayable submission media with lease acquisition, multipart upload, MIME validation, and Reddit/S3 error mapping.",
+      "sourcePath": "src/models/media.ts",
+      "testPath": "tests/media-upload.test.ts"
+    },
+    {
+      "symbol": "praw.models.Preferences",
+      "area": "models",
+      "status": "planned",
+      "description": "Authenticated account preferences export."
+    },
+    {
+      "symbol": "praw.models.RedditModNotes",
+      "area": "models",
+      "status": "planned",
+      "description": "Site-wide moderator notes helper export."
+    },
+    {
+      "symbol": "praw.models.Redditor",
+      "area": "models",
+      "status": "adapted",
+      "description": "Lazy and response-backed Reddit account with hydration, identity, private messaging, and content listings.",
+      "sourcePath": "src/models/entities.ts",
+      "testPath": "tests/models.test.ts"
+    },
+    {
+      "symbol": "praw.models.RedditorList",
+      "area": "models",
+      "status": "planned",
+      "description": "Redditor relationship list export."
+    },
+    {
+      "symbol": "praw.models.RedditorModNotes",
+      "area": "models",
+      "status": "planned",
+      "description": "Per-redditor moderator notes helper export."
+    },
+    {
+      "symbol": "praw.models.Redditors",
+      "area": "models",
+      "status": "planned",
+      "description": "Top-level redditor helper export."
+    },
+    {
+      "symbol": "praw.models.RemovalReason",
+      "area": "models",
+      "status": "planned",
+      "description": "Subreddit removal reason export."
+    },
+    {
+      "symbol": "praw.models.Rule",
+      "area": "models",
+      "status": "planned",
+      "description": "Subreddit rule export."
+    },
+    {
+      "symbol": "praw.models.RulesWidget",
+      "area": "models",
+      "status": "planned",
+      "description": "Rules sidebar widget export."
+    },
+    {
+      "symbol": "praw.models.Styles",
+      "area": "models",
+      "status": "planned",
+      "description": "Widget style configuration export."
+    },
+    {
+      "symbol": "praw.models.Stylesheet",
+      "area": "models",
+      "status": "planned",
+      "description": "Legacy subreddit stylesheet export."
+    },
+    {
+      "symbol": "praw.models.StylesheetAsset",
+      "area": "models",
+      "status": "planned",
+      "description": "Stylesheet upload asset export."
+    },
+    {
+      "symbol": "praw.models.StylesheetImage",
+      "area": "models",
+      "status": "planned",
+      "description": "Stylesheet image export."
+    },
+    {
+      "symbol": "praw.models.Submenu",
+      "area": "models",
+      "status": "planned",
+      "description": "Nested menu item export."
+    },
+    {
+      "symbol": "praw.models.Submission",
+      "area": "models",
+      "status": "adapted",
+      "description": "Lazy and response-backed Reddit submission with comment-forest hydration, identity, voting, reply, edit, delete, save, unsave, report, hide, and unhide behavior.",
+      "sourcePath": "src/models/entities.ts",
+      "testPath": "tests/model-capabilities.test.ts"
+    },
+    {
+      "symbol": "praw.models.Subreddit",
+      "area": "models",
+      "status": "adapted",
+      "description": "Lazy and response-backed subreddit with hydration, identity, listings, subscription, and tested submission variants.",
+      "sourcePath": "src/models/entities.ts",
+      "testPath": "tests/models-edge-cases.test.ts"
+    },
+    {
+      "symbol": "praw.models.SubredditHelper",
+      "area": "models",
+      "status": "planned",
+      "description": "Subreddit search and discovery helper export."
+    },
+    {
+      "symbol": "praw.models.SubredditMessage",
+      "area": "models",
+      "status": "planned",
+      "description": "Legacy subreddit message export."
+    },
+    {
+      "symbol": "praw.models.SubredditModNotes",
+      "area": "models",
+      "status": "planned",
+      "description": "Per-subreddit moderator notes helper export."
+    },
+    {
+      "symbol": "praw.models.SubredditWidgets",
+      "area": "models",
+      "status": "planned",
+      "description": "Subreddit widgets collection export."
+    },
+    {
+      "symbol": "praw.models.SubredditWidgetsModeration",
+      "area": "models",
+      "status": "planned",
+      "description": "Subreddit widget moderation helper export."
+    },
+    {
+      "symbol": "praw.models.Subreddits",
+      "area": "models",
+      "status": "planned",
+      "description": "Top-level subreddit discovery helper export."
+    },
+    {
+      "symbol": "praw.models.TextArea",
+      "area": "models",
+      "status": "planned",
+      "description": "Text-area sidebar widget export."
+    },
+    {
+      "symbol": "praw.models.Trophy",
+      "area": "models",
+      "status": "planned",
+      "description": "Reddit trophy export."
+    },
+    {
+      "symbol": "praw.models.TrophyList",
+      "area": "models",
+      "status": "planned",
+      "description": "Redditor trophy list export."
+    },
+    {
+      "symbol": "praw.models.User",
+      "area": "models",
+      "status": "planned",
+      "description": "Authenticated user helper export."
+    },
+    {
+      "symbol": "praw.models.UserSubreddit",
+      "area": "models",
+      "status": "planned",
+      "description": "User-profile subreddit export."
+    },
+    {
+      "symbol": "praw.models.Widget",
+      "area": "models",
+      "status": "planned",
+      "description": "Base subreddit widget export."
+    },
+    {
+      "symbol": "praw.models.WidgetMedia",
+      "area": "models",
+      "status": "planned",
+      "description": "Widget upload media export."
+    },
+    {
+      "symbol": "praw.models.WidgetModeration",
+      "area": "models",
+      "status": "planned",
+      "description": "Individual widget moderation helper export."
+    },
+    {
+      "symbol": "praw.models.WikiPage",
+      "area": "models",
+      "status": "planned",
+      "description": "Subreddit wiki page export."
+    }
+  ]
+}
