@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -904,7 +906,7 @@ describe("widget domain edge cases", () => {
 
   it("constructs WidgetMedia from paths and preserves subclass factories", () => {
     const media = WidgetMedia.fromPath(
-      "/Users/onatm/dev/onatm/traw/package.json",
+      fileURLToPath(new URL("../package.json", import.meta.url)),
       { name: "widget.PNG" },
     );
     expect(media).toBeInstanceOf(WidgetMedia);
