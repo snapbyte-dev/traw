@@ -1,6 +1,6 @@
 import { replayableJson } from "../core/transport.js";
-import { Multireddit } from "../domains.js";
-import { Conflict, ReadOnlyException } from "../exceptions.js";
+import { Multireddit, type MultiredditClient } from "../models/multireddit.js";
+import { ConflictError, ReadOnlyError } from "../exceptions.js";
 import { Listing, type ListingOptions } from "../listing.js";
 import {
   BaseModel,
@@ -43,18 +43,41 @@ export interface PinOptions {
 
 export class Trophy extends BaseModel {}
 
-export interface PreferencesDomain {
-  (signal?: AbortSignal): Promise<AccountPreferences>;
-  read(signal?: AbortSignal): Promise<AccountPreferences>;
-  update(
+export class PreferencesDomain {
+  readonly #client: AccountClient;
+
+  constructor(client: AccountClient) {
+    this.#client = client;
+  }
+
+  async get(signal?: AbortSignal): Promise<AccountPreferences> {
+    assertAuthorized(this.#client, "account.preferences.get()");
+    const response = await this.#client.request({
+      method: "GET",
+      path: "/api/v1/me/prefs",
+      ...signalOptions(signal),
+    });
+    return preferencesData(response);
+  }
+
+  async update(
     preferences: AccountPreferences,
     signal?: AbortSignal,
-  ): Promise<AccountPreferences>;
+  ): Promise<AccountPreferences> {
+    assertAuthorized(this.#client, "account.preferences.update()");
+    const response = await this.#client.request({
+      method: "PATCH",
+      path: "/api/v1/me/prefs",
+      data: { json: JSON.stringify(preferences) },
+      ...signalOptions(signal),
+    });
+    return preferencesData(response);
+  }
 }
 
 function assertAuthorized(client: AccountClient, operation: string): void {
   if (client.readOnly) {
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
   }
 }
 
@@ -148,7 +171,7 @@ function subredditList(client: RedditClientLike, value: unknown): Subreddit[] {
 }
 
 function multiredditList(
-  client: RedditClientLike,
+  client: MultiredditClient,
   value: unknown,
 ): Multireddit[] {
   return rawArray(value, "children", "multireddit list").map((item) => {
@@ -158,34 +181,6 @@ function multiredditList(
     }
     return new Multireddit(client, data);
   });
-}
-
-function createPreferencesDomain(client: AccountClient): PreferencesDomain {
-  const read = async (signal?: AbortSignal): Promise<AccountPreferences> => {
-    assertAuthorized(client, "account.preferences.read()");
-    const response = await client.request({
-      method: "GET",
-      path: "/api/v1/me/prefs",
-      ...signalOptions(signal),
-    });
-    return preferencesData(response);
-  };
-  const preferences = read as PreferencesDomain;
-  preferences.read = read;
-  preferences.update = async (
-    updates: AccountPreferences,
-    signal?: AbortSignal,
-  ): Promise<AccountPreferences> => {
-    assertAuthorized(client, "account.preferences.update()");
-    const response = await client.request({
-      method: "PATCH",
-      path: "/api/v1/me/prefs",
-      data: { json: JSON.stringify(updates) },
-      ...signalOptions(signal),
-    });
-    return preferencesData(response);
-  };
-  return preferences;
 }
 
 async function relationshipRequest(
@@ -362,7 +357,7 @@ export async function redditorModeratedCommunities(
 }
 
 export async function redditorPublicMultireddits(
-  client: RedditClientLike,
+  client: MultiredditClient,
   redditor: string | Redditor,
   signal?: AbortSignal,
 ): Promise<Multireddit[]> {
@@ -382,7 +377,7 @@ export class AccountDomain {
 
   constructor(client: AccountClient) {
     this.#client = client;
-    this.preferences = createPreferencesDomain(client);
+    this.preferences = new PreferencesDomain(client);
   }
 
   async me(options: MeOptions = {}): Promise<Redditor> {
@@ -448,20 +443,12 @@ export class AccountDomain {
     );
   }
 
-  contributorSubreddits(options: ListingOptions = {}): Listing<Subreddit> {
-    return this.contributorCommunities(options);
-  }
-
   moderatorCommunities(options: ListingOptions = {}): Listing<Subreddit> {
     return this.accountListing(
       "account.moderatorCommunities()",
       "/subreddits/mine/moderator/",
       options,
     );
-  }
-
-  moderatorSubreddits(options: ListingOptions = {}): Listing<Subreddit> {
-    return this.moderatorCommunities(options);
   }
 
   async friends(signal?: AbortSignal): Promise<Redditor[]>;
@@ -523,7 +510,7 @@ export class AccountDomain {
         ...signalOptions(options.signal),
       });
     } catch (error) {
-      if (error instanceof Conflict) return undefined;
+      if (error instanceof ConflictError) return undefined;
       throw error;
     }
     const objectified = new Objector(this.#client).objectify(response);
@@ -627,8 +614,4 @@ export class AccountDomain {
     });
     return redditorList(this.#client, response);
   }
-}
-
-export function createAccountDomain(client: AccountClient): AccountDomain {
-  return new AccountDomain(client);
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { WebSocketFactory, WebSocketLike } from "../src/core/transport.js";
-import { ReadOnlyException, WebSocketException } from "../src/exceptions.js";
+import { ReadOnlyError, WebSocketError } from "../src/exceptions.js";
 import type { RedditClientLike, RedditRequest } from "../src/models/base.js";
 import {
   Comment,
@@ -350,10 +350,10 @@ describe("content action edge contracts", () => {
 
     const readOnlyClient = { readOnly: true, request: vi.fn() };
     const readOnlyComment = new Comment(readOnlyClient, "comment");
-    expect(() => readOnlyComment.mod.show()).toThrow(ReadOnlyException);
+    expect(() => readOnlyComment.mod.show()).toThrow(ReadOnlyError);
     await expect(
       readOnlyComment.mod.sendRemovalMessage("removed"),
-    ).rejects.toBeInstanceOf(ReadOnlyException);
+    ).rejects.toBeInstanceOf(ReadOnlyError);
     expect(readOnlyClient.request).not.toHaveBeenCalled();
     expect(request).toHaveBeenCalledOnce();
   });
@@ -503,7 +503,7 @@ describe("entity parsing and media protocol edges", () => {
           kind: "image",
         },
       ),
-    ).rejects.toBeInstanceOf(WebSocketException);
+    ).rejects.toBeInstanceOf(WebSocketError);
   });
 
   it("honors an already-aborted media signal and skips absent socket URLs", async () => {

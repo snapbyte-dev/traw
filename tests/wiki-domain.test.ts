@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SubredditWiki, createSubredditWiki } from "../src/domains/wiki.js";
+import { SubredditWiki } from "../src/domains/wiki.js";
 import { Redditor, Submission } from "../src/models/entities.js";
 import { WikiPage, WikiRevision, wikiPageName } from "../src/models/wiki.js";
 
@@ -43,7 +43,7 @@ describe("standalone wiki domain", () => {
       signal,
     });
     expect(created.isLoaded).toBe(false);
-    await created.read(signal);
+    await created.load(signal);
     expect(created.isLoaded).toBe(true);
     expect(created.get("content_md")).toBe("Hello");
     expect(created.get("revision_by")).toBeInstanceOf(Redditor);
@@ -79,7 +79,7 @@ describe("standalone wiki domain", () => {
     const page = new SubredditWiki({ request }, "test").get("history");
     const revision = page.revision("abc123");
 
-    await revision.hydrate();
+    await revision.load();
     expect(request).toHaveBeenNthCalledWith(1, {
       method: "GET",
       path: "/r/test/wiki/history",
@@ -165,7 +165,7 @@ describe("standalone wiki domain", () => {
     expect((await collect(page.editors.list({ limit: 1 })))[0]).toBeInstanceOf(
       Redditor,
     );
-    await page.mod.add("alice");
+    await page.editors.add("alice");
     await page.editors.remove("alice");
     expect(request).toHaveBeenNthCalledWith(3, {
       method: "POST",
@@ -240,7 +240,7 @@ describe("standalone wiki domain", () => {
       .mockResolvedValueOnce(["One"])
       .mockResolvedValueOnce(["Two"])
       .mockResolvedValueOnce({ content_md: "direct", revision_by: undefined });
-    const wiki = createSubredditWiki({ request }, "type script");
+    const wiki = new SubredditWiki({ request }, "type script");
 
     expect(wiki.page("ONE").name).toBe("one");
     expect((await collect(wiki)).map((page) => page.name)).toEqual(["one"]);
@@ -289,9 +289,10 @@ describe("standalone wiki domain", () => {
       })
       .mockResolvedValueOnce({ data: { data: { name: "x", revision_by: 1 } } });
     const page = new SubredditWiki({ request }, "test").get("x");
-    await expect(page.hydrate()).resolves.toBe(page);
+    await expect(page.load()).resolves.toBe(page);
     expect(page.get("revision_by")).toBeInstanceOf(Redditor);
-    await expect(page.hydrate()).rejects.toThrow("invalid wiki author");
+    const invalidPage = new SubredditWiki({ request }, "test").get("x");
+    await expect(invalidPage.load()).rejects.toThrow("invalid wiki author");
     await expect(page.edit(1 as unknown as string)).rejects.toThrow(
       "content must be a string",
     );
@@ -313,7 +314,7 @@ describe("standalone wiki domain", () => {
       .mockResolvedValueOnce({ children: [], after: 2 })
       .mockResolvedValueOnce(null);
     const page = new SubredditWiki({ request }, "test").get("a/b");
-    expect(page.revisionAt("rev").revisionId).toBe("rev");
+    expect(page.revision("rev").revisionId).toBe("rev");
     expect(page.discussions()).toMatchObject({
       url: "/r/test/wiki/discussions/a/b",
     });
@@ -321,7 +322,7 @@ describe("standalone wiki domain", () => {
       "invalid wiki author",
     );
     await expect(collect(page.revisions())).rejects.toThrow("cursor");
-    await page.revisionAt("rev").editors.revert();
+    await page.revision("rev").editors.revert();
 
     expect(
       String(
@@ -365,7 +366,7 @@ describe("standalone wiki domain", () => {
       permlevel: 1,
     });
     await expect(
-      page.editors.update({ listed: false, permlevel: 2 }),
+      page.editors.updateSettings({ listed: false, permlevel: 2 }),
     ).resolves.toMatchObject({ listed: false });
     await expect(page.settings()).rejects.toThrow("invalid wiki page settings");
     await expect(

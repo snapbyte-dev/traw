@@ -1,61 +1,61 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  BadJSON,
-  BadRequest,
-  ClientException,
-  Conflict,
-  DuplicateReplaceException,
-  Forbidden,
-  InsufficientScope,
-  InvalidFlairTemplateID,
-  InvalidImplicitAuth,
-  InvalidInvocation,
-  InvalidToken,
-  InvalidURL,
-  MediaPostFailed,
-  MissingRequiredAttributeException,
-  NotFound,
-  OAuthException,
-  PRAWException,
-  PrawcoreException,
-  ReadOnlyException,
-  Redirect,
-  RedditAPIException,
+  BadJsonError,
+  BadRequestError,
+  ClientError,
+  ConflictError,
+  DuplicateReplaceError,
+  ForbiddenError,
+  InsufficientScopeError,
+  InvalidFlairTemplateIdError,
+  InvalidImplicitAuthError,
+  InvalidInvocationError,
+  InvalidTokenError,
+  InvalidUrlError,
+  MediaPostFailedError,
+  MissingRequiredAttributeError,
+  NotFoundError,
+  OAuthError,
+  TrawError,
+  RedditCoreError,
+  ReadOnlyError,
+  RedirectError,
+  RedditApiError,
   RedditErrorItem,
-  RequestException,
+  RequestError,
   ServerError,
   SpecialError,
-  TooLarge,
-  TooLargeMediaException,
-  TooManyRequests,
-  URITooLong,
-  UnavailableForLegalReasons,
-  WebSocketException,
+  PayloadTooLargeError,
+  MediaTooLargeError,
+  TooManyRequestsError,
+  UriTooLongError,
+  UnavailableForLegalReasonsError,
+  WebSocketError,
   type HttpResponse,
   type RedditError,
 } from "../src/exceptions.js";
 
 describe("client exceptions", () => {
   it("sets concrete names and fixed constructor messages", () => {
-    const duplicate = new DuplicateReplaceException();
-    expect(duplicate).toBeInstanceOf(ClientException);
-    expect(duplicate).toBeInstanceOf(PRAWException);
-    expect(duplicate.name).toBe("DuplicateReplaceException");
+    const duplicate = new DuplicateReplaceError();
+    expect(duplicate).toBeInstanceOf(ClientError);
+    expect(duplicate).toBeInstanceOf(TrawError);
+    expect(duplicate.name).toBe("DuplicateReplaceError");
     expect(duplicate.message).toContain("replace_more_comments");
-    expect(new InvalidImplicitAuth().message).toBe(
+    expect(new InvalidImplicitAuthError().message).toBe(
       "Implicit authorization can only be used with installed apps.",
     );
-    expect(new MediaPostFailed().message).toContain(
+    expect(new MediaPostFailedError().message).toContain(
       "media upload action has failed",
     );
   });
 
   it("preserves constructor-specific values and formats messages", () => {
-    const flair = new InvalidFlairTemplateID("template-1");
-    const url = new InvalidURL("bad://url");
-    const alternateUrl = new InvalidURL("value", "{} then {0}");
-    const media = new TooLargeMediaException({ actual: 11, maximumSize: 10 });
+    const flair = new InvalidFlairTemplateIdError("template-1");
+    const url = new InvalidUrlError("bad://url");
+    const alternateUrl = new InvalidUrlError("value", "{} then {0}");
+    const media = new MediaTooLargeError({ actual: 11, maximumSize: 10 });
 
     expect(flair.templateId).toBe("template-1");
     expect(flair.message).toContain("'template-1' is invalid");
@@ -69,26 +69,26 @@ describe("client exceptions", () => {
   });
 
   it("supports inherited message constructors", () => {
-    expect(new MissingRequiredAttributeException("missing").message).toBe(
+    expect(new MissingRequiredAttributeError("missing").message).toBe(
       "missing",
     );
-    expect(new ReadOnlyException("read only").name).toBe("ReadOnlyException");
-    expect(new WebSocketException("socket").name).toBe("WebSocketException");
+    expect(new ReadOnlyError("read only").name).toBe("ReadOnlyError");
+    expect(new WebSocketError("socket").name).toBe("WebSocketError");
   });
 });
 
 describe("Reddit API errors", () => {
   it("parses a single item, one tuple, and mixed error lists", () => {
     const item = new RedditErrorItem("ONE");
-    const single = new RedditAPIException(item);
-    const tuple = new RedditAPIException(["BAD_FIELD", "invalid", "title"]);
+    const single = new RedditApiError(item);
+    const tuple = new RedditApiError(["BAD_FIELD", "invalid", "title"]);
     const existing = new RedditErrorItem("RATELIMIT", { message: "slow down" });
     const errors: readonly RedditError[] = [
       ["BAD_FIELD", "", ""],
       ["EMPTY"],
       existing,
     ];
-    const mixed = new RedditAPIException(errors);
+    const mixed = new RedditApiError(errors);
 
     expect(single.items).toEqual([item]);
     expect(tuple.message).toBe("BAD_FIELD: 'invalid' on field 'title'");
@@ -141,12 +141,8 @@ describe("Reddit API errors", () => {
 describe("transport exceptions", () => {
   it("preserves OAuth metadata with and without descriptions", () => {
     const response = { status: 401 };
-    const described = new OAuthException(
-      response,
-      "invalid_grant",
-      "expired code",
-    );
-    const plain = new OAuthException(response, "invalid_grant");
+    const described = new OAuthError(response, "invalid_grant", "expired code");
+    const plain = new OAuthError(response, "invalid_grant");
     expect(described).toMatchObject({
       description: "expired code",
       error: "invalid_grant",
@@ -154,17 +150,17 @@ describe("transport exceptions", () => {
       response,
     });
     expect(plain.message).toBe("invalid_grant error processing request");
-    expect(described).toBeInstanceOf(PrawcoreException);
-    expect(described).not.toBeInstanceOf(ClientException);
+    expect(described).toBeInstanceOf(RedditCoreError);
+    expect(described).not.toBeInstanceOf(ClientError);
   });
 
   it("preserves request causes and handles non-Error causes and default metadata", () => {
     const cause = new Error("socket closed");
-    const request = new RequestException(cause, {
+    const request = new RequestError(cause, {
       method: "GET",
       url: "https://example.com",
     });
-    const scalar = new RequestException(42);
+    const scalar = new RequestError(42);
     expect(request.cause).toBe(cause);
     expect(request.originalError).toBe(cause);
     expect(request.request.method).toBe("GET");
@@ -175,17 +171,17 @@ describe("transport exceptions", () => {
   it("preserves response and status for every status exception subtype", () => {
     const response = { status: 503 };
     const constructors = [
-      BadJSON,
-      BadRequest,
-      Conflict,
-      Forbidden,
-      InsufficientScope,
-      InvalidToken,
-      NotFound,
+      BadJsonError,
+      BadRequestError,
+      ConflictError,
+      ForbiddenError,
+      InsufficientScopeError,
+      InvalidTokenError,
+      NotFoundError,
       ServerError,
-      TooLarge,
-      URITooLong,
-      UnavailableForLegalReasons,
+      PayloadTooLargeError,
+      UriTooLongError,
+      UnavailableForLegalReasonsError,
     ];
     for (const Constructor of constructors) {
       const error = new Constructor(response);
@@ -194,13 +190,13 @@ describe("transport exceptions", () => {
       expect(error.message).toBe("received 503 HTTP response");
       expect(error.name).toBe(Constructor.name);
     }
-    expect(new InvalidInvocation("bad call").message).toBe("bad call");
+    expect(new InvalidInvocationError("bad call").message).toBe("bad call");
   });
 });
 
 describe("special response exceptions", () => {
   it("reads redirects from record headers and strips .json", () => {
-    const redirect = new Redirect({
+    const redirect = new RedirectError({
       status: 302,
       url: "https://www.reddit.com",
       headers: { Location: "https://www.reddit.com/r/typescript.json" },
@@ -213,21 +209,23 @@ describe("special response exceptions", () => {
     const get = vi.fn((name: string) =>
       name === "location" ? "/login/test.json" : null,
     );
-    const redirect = new Redirect({ status: 301, headers: { get } });
+    const redirect = new RedirectError({ status: 301, headers: { get } });
     expect(get).toHaveBeenCalledWith("location");
     expect(redirect.path).toBe("/login/test");
     expect(redirect.message).toContain("non-read-only action");
   });
 
   it("rejects redirects without a usable location", () => {
-    expect(() => new Redirect({ status: 302 })).toThrow(
+    expect(() => new RedirectError({ status: 302 })).toThrow(
       "Redirect response is missing a location header",
     );
     expect(
-      () => new Redirect({ status: 302, headers: { get: () => 42 } as never }),
+      () =>
+        new RedirectError({ status: 302, headers: { get: () => 42 } as never }),
     ).toThrow("Redirect response is missing a location header");
     expect(
-      () => new Redirect({ status: 302, headers: { location: 42 } as never }),
+      () =>
+        new RedirectError({ status: 302, headers: { location: 42 } as never }),
     ).toThrow("Redirect response is missing a location header");
   });
 
@@ -277,7 +275,7 @@ describe("special response exceptions", () => {
 
   it("extracts retry metadata case-insensitively and prefers string bodies", () => {
     const text = vi.fn(() => "from text");
-    const body = new TooManyRequests({
+    const body = new TooManyRequestsError({
       status: 429,
       body: "slow down",
       headers: { "Retry-After": "2.5" },
@@ -295,10 +293,10 @@ describe("special response exceptions", () => {
       headers: { unrelated: undefined },
       text: () => "text response",
     };
-    const limited = new TooManyRequests(response);
+    const limited = new TooManyRequestsError(response);
     expect(limited.retryAfter).toBeNull();
     expect(limited.responseBody).toBe("text response");
     expect(limited.message).toBe("received 429 HTTP response");
-    expect(new TooManyRequests({ status: 429 }).responseBody).toBe("");
+    expect(new TooManyRequestsError({ status: 429 }).responseBody).toBe("");
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createLiveDomain, LiveDomainClient } from "../src/domains/live.js";
-import { ReadOnlyException } from "../src/exceptions.js";
+import { LiveDomain } from "../src/domains/live.js";
+import { ReadOnlyError } from "../src/exceptions.js";
 import { Listing } from "../src/listing.js";
 import type { RedditRequest } from "../src/models/base.js";
 import {
@@ -50,9 +50,9 @@ describe("standalone live domain", () => {
           resources: "[Status](https://status.example)",
         },
       });
-    const live = createLiveDomain(client);
+    const live = new LiveDomain(client);
     const signal = new AbortController().signal;
-    const reference = live(" current ");
+    const reference = live.reference(" current ");
     const created = await live.create(" Incident ", {
       description: "Tracking",
       signal,
@@ -100,7 +100,7 @@ describe("standalone live domain", () => {
       })
       .mockResolvedValueOnce({ kind: "LiveThread", data: { id: "featured" } })
       .mockResolvedValueOnce({ data: null });
-    const live = createLiveDomain(client);
+    const live = new LiveDomain(client);
 
     const threads = await collect(live.info(ids));
     expect(threads).toHaveLength(101);
@@ -143,7 +143,7 @@ describe("standalone live domain", () => {
           ],
         },
       });
-    const thread = createLiveDomain(client)("incident");
+    const thread = new LiveDomain(client).reference("incident");
     const updates = thread.updates({ limit: 1 });
     const discussions = thread.discussions({ limit: 1 });
 
@@ -176,7 +176,7 @@ describe("standalone live domain", () => {
         },
       })
       .mockResolvedValue(null);
-    const thread = createLiveDomain(client)("incident");
+    const thread = new LiveDomain(client).reference("incident");
     const update = thread.update("focus");
     const signal = new AbortController().signal;
 
@@ -214,7 +214,7 @@ describe("standalone live domain", () => {
         },
       })
       .mockResolvedValueOnce(null);
-    const thread = createLiveDomain(client)("incident");
+    const thread = new LiveDomain(client).reference("incident");
     const signal = new AbortController().signal;
 
     await thread.contrib.add(" Service restored ", signal);
@@ -245,7 +245,9 @@ describe("standalone live domain", () => {
         },
       })
       .mockResolvedValue(null);
-    const contributor = createLiveDomain(client)("incident").contributor;
+    const contributor = new LiveDomain(client).reference(
+      "incident",
+    ).contributor;
     const signal = new AbortController().signal;
 
     const [alice] = await collect(contributor.list({ limit: 1, signal }));
@@ -273,7 +275,9 @@ describe("standalone live domain", () => {
   it("removes contributors and invites, leaves, and accepts invitations", async () => {
     const { client, request } = mockClient();
     request.mockResolvedValue(null);
-    const contributor = createLiveDomain(client)("incident").contributor;
+    const contributor = new LiveDomain(client).reference(
+      "incident",
+    ).contributor;
 
     await contributor.remove("t2_alice");
     await contributor.removeInvite("t2_bob");
@@ -300,7 +304,7 @@ describe("standalone live domain", () => {
       },
     });
     const controller = new AbortController();
-    const stream = createLiveDomain(client)("incident").stream.updates({
+    const stream = new LiveDomain(client).reference("incident").stream.updates({
       signal: controller.signal,
     });
     const iterator = stream[Symbol.asyncIterator]();
@@ -315,31 +319,31 @@ describe("standalone live domain", () => {
 
   it("rejects invalid, read-only, and cancelled operations before I/O", async () => {
     const blocked = mockClient(true);
-    const live = createLiveDomain(blocked.client);
-    expect(() => live(" ")).toThrow("live thread ID cannot be empty");
-    await expect(live.create("Title")).rejects.toBeInstanceOf(
-      ReadOnlyException,
+    const live = new LiveDomain(blocked.client);
+    expect(() => live.reference(" ")).toThrow("live thread ID cannot be empty");
+    await expect(live.create("Title")).rejects.toBeInstanceOf(ReadOnlyError);
+    expect(() => live.reference("thread").report("spam")).toThrow(
+      ReadOnlyError,
     );
-    expect(() => live("thread").report("spam")).toThrow(ReadOnlyException);
-    expect(() => live("thread").contrib.add("body")).toThrow(ReadOnlyException);
+    expect(() => live.reference("thread").contrib.add("body")).toThrow(
+      ReadOnlyError,
+    );
     expect(blocked.request).not.toHaveBeenCalled();
 
     const active = mockClient();
     const controller = new AbortController();
     controller.abort(new Error("cancelled"));
     await expect(
-      createLiveDomain(active.client).now(controller.signal),
+      new LiveDomain(active.client).now(controller.signal),
     ).rejects.toThrow("cancelled");
     await expect(
-      createLiveDomain(active.client)("thread").contributor.invite(
-        "alice",
-        ["manage"],
-        controller.signal,
-      ),
+      new LiveDomain(active.client)
+        .reference("thread")
+        .contributor.invite("alice", ["manage"], controller.signal),
     ).rejects.toThrow("cancelled");
     expect(active.request).not.toHaveBeenCalled();
 
-    const thread = createLiveDomain(active.client)("thread");
+    const thread = new LiveDomain(active.client).reference("thread");
     expect(() => thread.report("other" as "spam")).toThrow("report reason");
     expect(() => thread.contrib.add(" ")).toThrow("body cannot be empty");
     expect(() => thread.contributor.remove("alice")).toThrow("t2_");
@@ -347,34 +351,32 @@ describe("standalone live domain", () => {
 
   it("validates domain inputs and malformed create, info, and now responses", async () => {
     const { client, request } = mockClient();
-    const wrapped = new LiveDomainClient(client);
-    expect(wrapped.live("id")).toBeInstanceOf(LiveThread);
-    expect(() => wrapped.live.info("ids" as never)).toThrow("array of strings");
-    expect(() => wrapped.live.info(["ok", 1] as never)).toThrow(
-      "array of strings",
-    );
-    expect(() => wrapped.live.info([" "])).toThrow("cannot be empty");
-    await expect(wrapped.live.create("x".repeat(121))).rejects.toThrow("120");
+    const live = new LiveDomain(client);
+    expect(live.reference("id")).toBeInstanceOf(LiveThread);
+    expect(() => live.info("ids" as never)).toThrow("array of strings");
+    expect(() => live.info(["ok", 1] as never)).toThrow("array of strings");
+    expect(() => live.info([" "])).toThrow("cannot be empty");
+    await expect(live.create("x".repeat(121))).rejects.toThrow("120");
 
     request.mockResolvedValueOnce(null);
     await expect(
-      wrapped.live.create("title", { nsfw: true, resources: "links" }),
+      live.create("title", { nsfw: true, resources: "links" }),
     ).rejects.toThrow("invalid live thread data");
     request.mockResolvedValueOnce({});
-    await expect(collect(wrapped.live.info(["id"]))).rejects.toThrow(
+    await expect(collect(live.info(["id"]))).rejects.toThrow(
       "invalid live thread info",
     );
     request.mockResolvedValueOnce({
       kind: "Listing",
       data: { children: [null] },
     });
-    await expect(collect(wrapped.live.info(["id"]))).rejects.toThrow(
+    await expect(collect(live.info(["id"]))).rejects.toThrow(
       "invalid live thread data",
     );
     request.mockResolvedValueOnce(null);
-    await expect(wrapped.live.now()).resolves.toBeNull();
+    await expect(live.now()).resolves.toBeNull();
     request.mockResolvedValueOnce({ data: { id: "now" } });
-    await expect(wrapped.live.now()).resolves.toMatchObject({ id: "now" });
+    await expect(live.now()).resolves.toMatchObject({ id: "now" });
   });
 
   it("covers model identity helpers and loaded-state lifecycle", async () => {
@@ -513,7 +515,7 @@ describe("standalone live domain", () => {
     const controller = new AbortController();
     controller.abort(new Error("info stopped"));
     await expect(
-      collect(createLiveDomain(client).info(["id"], controller.signal)),
+      collect(new LiveDomain(client).info(["id"], controller.signal)),
     ).rejects.toThrow("info stopped");
   });
 });

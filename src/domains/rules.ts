@@ -168,10 +168,3 @@ export class SubredditRules {
     );
   }
 }
-
-export function createSubredditRules(
-  client: ModerationClientLike,
-  subreddit: SubredditReference,
-): SubredditRules {
-  return new SubredditRules(client, subreddit);
-}

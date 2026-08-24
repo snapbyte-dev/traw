@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ReplayableBody } from "../src/core/transport.js";
 import {
-  ResponseException,
+  ResponseError,
   ServerError,
-  TooLargeMediaException,
+  MediaTooLargeError,
 } from "../src/exceptions.js";
 import type {
   RedditClientLike,
@@ -93,10 +93,10 @@ describe("PostMedia upload", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("maps S3 size XML to TooLargeMediaException", async () => {
+  it("maps S3 size XML to MediaTooLargeError", async () => {
     const request = vi.fn<(request: ModelRequest) => Promise<unknown>>();
     request.mockResolvedValueOnce(lease()).mockRejectedValueOnce(
-      new ResponseException({
+      new ResponseError({
         body: "<Error><Code>EntityTooLarge</Code><Message>large</Message><ProposedSize>11</ProposedSize><MaxSizeAllowed>10</MaxSizeAllowed></Error>",
         status: 400,
       }),
@@ -104,7 +104,7 @@ describe("PostMedia upload", () => {
     const error = await PostMedia.fromBytes(new Uint8Array([1]), "photo.jpg")
       .upload({ request })
       .catch((value: unknown) => value);
-    expect(error).toBeInstanceOf(TooLargeMediaException);
+    expect(error).toBeInstanceOf(MediaTooLargeError);
     expect(error).toMatchObject({ actual: 11, maximumSize: 10 });
   });
 
@@ -120,7 +120,7 @@ describe("PostMedia upload", () => {
     const request = vi.fn<(request: ModelRequest) => Promise<unknown>>();
     request
       .mockResolvedValueOnce(lease())
-      .mockRejectedValueOnce(new ResponseException({ status: 403 }));
+      .mockRejectedValueOnce(new ResponseError({ status: 403 }));
     await expect(
       PostMedia.fromBytes(new Uint8Array(), "photo.png").upload({ request }),
     ).rejects.toBeInstanceOf(ServerError);

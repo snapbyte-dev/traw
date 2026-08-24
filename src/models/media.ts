@@ -3,9 +3,9 @@ import { basename, extname } from "node:path";
 
 import { replayableMultipart } from "../core/transport.js";
 import {
-  ResponseException,
+  ResponseError,
   ServerError,
-  TooLargeMediaException,
+  MediaTooLargeError,
 } from "../exceptions.js";
 import { isRawData, type RedditClientLike } from "./base.js";
 
@@ -131,6 +131,10 @@ export class Media {
   }
 }
 
+export class EmojiMedia extends Media {}
+export class StylesheetAsset extends Media {}
+export class StylesheetImage extends Media {}
+
 interface UploadLease {
   readonly assetId: string;
   readonly fields: readonly (readonly [string, string])[];
@@ -168,7 +172,7 @@ function parseLease(value: unknown): UploadLease {
 }
 
 function uploadError(error: unknown): never {
-  if (!(error instanceof ResponseException)) throw error;
+  if (!(error instanceof ResponseError)) throw error;
   const body =
     typeof error.response.body === "string"
       ? error.response.body
@@ -176,7 +180,7 @@ function uploadError(error: unknown): never {
   const actual = /<ProposedSize>(\d+)<\/ProposedSize>/.exec(body)?.[1];
   const maximum = /<MaxSizeAllowed>(\d+)<\/MaxSizeAllowed>/.exec(body)?.[1];
   if (actual !== undefined && maximum !== undefined) {
-    throw new TooLargeMediaException({
+    throw new MediaTooLargeError({
       actual: Number(actual),
       maximumSize: Number(maximum),
     });

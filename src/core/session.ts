@@ -1,19 +1,19 @@
 import {
-  BadJSON,
-  BadRequest,
-  Conflict,
-  Forbidden,
-  InvalidToken,
-  NotFound,
-  Redirect,
-  RequestException,
-  ResponseException,
+  BadJsonError,
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  InvalidTokenError,
+  NotFoundError,
+  RedirectError,
+  RequestError,
+  ResponseError,
   ServerError,
   SpecialError,
-  TooLarge,
-  TooManyRequests,
-  URITooLong,
-  UnavailableForLegalReasons,
+  PayloadTooLargeError,
+  TooManyRequestsError,
+  UriTooLongError,
+  UnavailableForLegalReasonsError,
 } from "../exceptions.js";
 import { RateLimiter } from "./rate-limiter.js";
 import { RetryStrategy, type RetryOptions } from "./retry.js";
@@ -74,18 +74,18 @@ type DefaultResponse = JsonValue | string | null;
 type ExceptionConstructor = new (response: TransportResponse) => Error;
 
 const STATUS_EXCEPTIONS: Readonly<Record<number, ExceptionConstructor>> = {
-  301: Redirect,
-  302: Redirect,
-  400: BadRequest,
-  401: InvalidToken,
-  403: Forbidden,
-  404: NotFound,
-  409: Conflict,
-  413: TooLarge,
-  414: URITooLong,
+  301: RedirectError,
+  302: RedirectError,
+  400: BadRequestError,
+  401: InvalidTokenError,
+  403: ForbiddenError,
+  404: NotFoundError,
+  409: ConflictError,
+  413: PayloadTooLargeError,
+  414: UriTooLongError,
   415: SpecialError,
-  429: TooManyRequests,
-  451: UnavailableForLegalReasons,
+  429: TooManyRequestsError,
+  451: UnavailableForLegalReasonsError,
   500: ServerError,
   501: ServerError,
   502: ServerError,
@@ -155,7 +155,7 @@ function parseDefault(response: TransportResponse): DefaultResponse {
   try {
     return response.json() as JsonValue;
   } catch {
-    throw new BadJSON(response);
+    throw new BadJsonError(response);
   }
 }
 
@@ -183,7 +183,7 @@ function responseException(response: TransportResponse): Error {
   }
   if (response.status >= 500 && response.status <= 599)
     return new ServerError(response);
-  const Exception = STATUS_EXCEPTIONS[response.status] ?? ResponseException;
+  const Exception = STATUS_EXCEPTIONS[response.status] ?? ResponseError;
   return new Exception(response);
 }
 
@@ -243,7 +243,7 @@ export class Session {
       } catch (error) {
         if (
           attempt < this.#retry.attempts &&
-          error instanceof RequestException &&
+          error instanceof RequestError &&
           this.#transport.isRetryableError?.(error) === true
         )
           continue;

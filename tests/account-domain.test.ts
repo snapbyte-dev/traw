@@ -2,15 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   AccountDomain,
+  PreferencesDomain,
   Trophy,
   blockRedditor,
-  createAccountDomain,
   redditorModeratedCommunities,
   redditorPublicMultireddits,
   redditorTrophies,
 } from "../src/domains/account.js";
-import { Multireddit } from "../src/domains.js";
-import { Conflict, ReadOnlyException } from "../src/exceptions.js";
+import { ConflictError, ReadOnlyError } from "../src/exceptions.js";
 import { Listing } from "../src/listing.js";
 import type { RedditRequest } from "../src/models/base.js";
 import {
@@ -19,6 +18,7 @@ import {
   Subreddit,
   UserSubreddit,
 } from "../src/models/entities.js";
+import { Multireddit } from "../src/models/multireddit.js";
 
 function client(readOnly = false): {
   readonly readOnly: boolean;
@@ -137,9 +137,9 @@ describe("AccountDomain", () => {
     const listings = [
       account.subreddits({ limit: 1 }),
       account.contributorCommunities({ limit: 1 }),
-      account.contributorSubreddits({ limit: 1 }),
+      account.contributorCommunities({ limit: 1 }),
       account.moderatorCommunities({ limit: 1 }),
-      account.moderatorSubreddits({ limit: 1 }),
+      account.moderatorCommunities({ limit: 1 }),
     ];
     expect(listings.every((listing) => listing instanceof Listing)).toBe(true);
     expect(listings.map((listing) => listing.url)).toEqual([
@@ -168,7 +168,8 @@ describe("AccountDomain", () => {
     const account = new AccountDomain(api);
     const signal = new AbortController().signal;
 
-    await expect(account.preferences()).resolves.toMatchObject({
+    expect(account.preferences).toBeInstanceOf(PreferencesDomain);
+    await expect(account.preferences.get()).resolves.toMatchObject({
       show_link_flair: true,
     });
     await expect(
@@ -243,7 +244,7 @@ describe("AccountDomain", () => {
     api.request.mockResolvedValueOnce(null);
     await expect(account.pin(post)).resolves.toBeUndefined();
     api.request.mockRejectedValueOnce(
-      new Conflict({
+      new ConflictError({
         status: 409,
         body: "",
         headers: {},
@@ -305,7 +306,6 @@ describe("AccountDomain", () => {
     expect((await account.publicMultireddits("alice"))[0]).toBeInstanceOf(
       Multireddit,
     );
-    expect(createAccountDomain(api)).toBeInstanceOf(AccountDomain);
   });
 
   it("performs all redditor relationship requests with API-compatible bodies", async () => {
@@ -387,7 +387,7 @@ describe("AccountDomain", () => {
     const operations: (() => unknown)[] = [
       () => account.me(),
       () => account.karma(),
-      () => account.preferences.read(),
+      () => account.preferences.get(),
       () => account.preferences.update({ lang: "en" }),
       () => account.friends(),
       () => account.blocked(),
@@ -399,12 +399,12 @@ describe("AccountDomain", () => {
     ];
     for (const operation of operations) {
       await expect(Promise.resolve().then(operation)).rejects.toBeInstanceOf(
-        ReadOnlyException,
+        ReadOnlyError,
       );
     }
-    expect(() => account.subreddits()).toThrow(ReadOnlyException);
-    expect(() => account.contributorCommunities()).toThrow(ReadOnlyException);
-    expect(() => account.moderatorCommunities()).toThrow(ReadOnlyException);
+    expect(() => account.subreddits()).toThrow(ReadOnlyError);
+    expect(() => account.contributorCommunities()).toThrow(ReadOnlyError);
+    expect(() => account.moderatorCommunities()).toThrow(ReadOnlyError);
     expect(api.request).not.toHaveBeenCalled();
   });
 
@@ -420,7 +420,9 @@ describe("AccountDomain", () => {
     );
 
     api.request.mockResolvedValue({ nested: {} });
-    await expect(account.preferences()).rejects.toThrow("invalid preferences");
+    await expect(account.preferences.get()).rejects.toThrow(
+      "invalid preferences",
+    );
     api.request.mockResolvedValue([{ name: "missing path" }]);
     await expect(account.multireddits()).rejects.toThrow("invalid multireddit");
 

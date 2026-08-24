@@ -1,10 +1,7 @@
 import { replayableMultipart } from "../core/transport.js";
-import {
-  RedditAPIException,
-  ResponseException,
-  ServerError,
-} from "../exceptions.js";
+import { RedditApiError, ResponseError, ServerError } from "../exceptions.js";
 import { BaseModel, isRawData, type RawData } from "../models/base.js";
+import { StylesheetAsset, StylesheetImage } from "../models/media.js";
 import {
   assertModeratorAccess,
   requiredString,
@@ -13,7 +10,6 @@ import {
   type ModerationClientLike,
   type SubredditReference,
 } from "../models/moderation.js";
-import { StylesheetAsset, StylesheetImage } from "../models/public.js";
 
 export type BannerAlignment = "centered" | "left" | "right";
 
@@ -53,7 +49,7 @@ function parseLease(value: unknown): UploadLease {
 }
 
 function uploadFailure(error: unknown): never {
-  if (!(error instanceof ResponseException)) throw error;
+  if (!(error instanceof ResponseError)) throw error;
   throw new ServerError(error.response);
 }
 
@@ -78,7 +74,7 @@ function imageResponse(value: unknown): RawData {
         "Reddit returned invalid stylesheet image error data",
       );
     }
-    throw new RedditAPIException([
+    throw new RedditApiError([
       error,
       typeof message === "string" ? message : null,
       null,
@@ -113,7 +109,7 @@ export class SubredditStylesheet {
     subredditName(subreddit);
   }
 
-  async read(signal?: AbortSignal): Promise<Stylesheet> {
+  async get(signal?: AbortSignal): Promise<Stylesheet> {
     signal?.throwIfAborted();
     const response = await this.#client.request({
       method: "GET",
@@ -124,10 +120,6 @@ export class SubredditStylesheet {
       throw new TypeError("Reddit returned invalid stylesheet data");
     }
     return new Stylesheet(this.#client, this.#subreddit, response);
-  }
-
-  get(signal?: AbortSignal): Promise<Stylesheet> {
-    return this.read(signal);
   }
 
   async update(
@@ -379,11 +371,4 @@ export class SubredditStylesheet {
       ...(signal === undefined ? {} : { signal }),
     });
   }
-}
-
-export function createSubredditStylesheet(
-  client: ModerationClientLike,
-  subreddit: SubredditReference,
-): SubredditStylesheet {
-  return new SubredditStylesheet(client, subreddit);
 }

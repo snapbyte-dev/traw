@@ -122,10 +122,3 @@ export class SubredditRemovalReasons {
     });
   }
 }
-
-export function createSubredditRemovalReasons(
-  client: ModerationClientLike,
-  subreddit: SubredditReference,
-): SubredditRemovalReasons {
-  return new SubredditRemovalReasons(client, subreddit);
-}

@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import {
   BaseModel,
   isRawData,
@@ -6,8 +6,8 @@ import {
   type RawData,
   type RedditClientLike,
 } from "./base.js";
-import { Message, Redditor, Subreddit } from "./entities.js";
-import { registerModelParsers } from "../objector.js";
+import { Redditor, Subreddit } from "./entities.js";
+import { Message } from "./messages.js";
 
 export interface ModmailClient extends RedditClientLike {
   readonly readOnly: boolean;
@@ -29,7 +29,7 @@ export interface ModmailMuteOptions extends ModmailActionOptions {
 
 function authorized(client: ModmailClient, operation: string): void {
   if (client.readOnly)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 function required(value: string, name: string): string {
@@ -349,7 +349,7 @@ export class LegacyModmailMessage extends Message {
     this.#modmailClient = client;
   }
 
-  async reply(
+  override async reply(
     body: string,
     options: ModmailActionOptions = {},
   ): Promise<LegacyModmailMessage | null> {
@@ -443,12 +443,3 @@ export function parseModmailConversation(
     ...(isRawData(userData) ? { user: new ModmailUser(client, userData) } : {}),
   });
 }
-
-registerModelParsers({
-  modmail_action: (client, data) =>
-    parseModmailAction(client as ModmailClient, data),
-  modmail_conversation: (client, data) =>
-    parseModmailConversation(client as ModmailClient, data),
-  modmail_message: (client, data) =>
-    parseModmailMessage(client as ModmailClient, data),
-});

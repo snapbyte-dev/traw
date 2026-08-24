@@ -101,10 +101,3 @@ export class SubredditWiki implements AsyncIterable<WikiPage> {
     yield* await this.list();
   }
 }
-
-export function createSubredditWiki(
-  client: WikiClientLike,
-  subreddit: SubredditReference,
-): SubredditWiki {
-  return new SubredditWiki(client, subreddit);
-}

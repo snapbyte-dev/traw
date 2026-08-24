@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import { Objector } from "../objector.js";
 import {
   RedditModel,
@@ -58,7 +58,7 @@ export interface DraftSubmitOptions {
 
 function assertAuthorized(client: DraftsClient, operation: string): void {
   if (client.readOnly)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 function nonEmpty(value: string, name: string): string {
@@ -311,35 +311,35 @@ async function fetchDrafts(
   return listData(response).map((value) => new Draft(client, draftData(value)));
 }
 
-export interface DraftsDomain {
-  (): Promise<Draft[]>;
-  (id: string): Draft;
-  list(signal?: AbortSignal): Promise<Draft[]>;
-  create(options: DraftCreateOptions, signal?: AbortSignal): Promise<Draft>;
-}
+export class DraftsDomain {
+  readonly #client: DraftsClient;
 
-export function createDraftsDomain(client: DraftsClient): DraftsDomain {
-  const list = (signal?: AbortSignal): Promise<Draft[]> =>
-    fetchDrafts(client, signal);
-  const domain = ((id?: string): Draft | Promise<Draft[]> => {
-    assertAuthorized(client, "drafts()");
-    return id === undefined ? list() : new Draft(client, id);
-  }) as DraftsDomain;
-  domain.list = list;
-  domain.create = async (
+  constructor(client: DraftsClient) {
+    this.#client = client;
+  }
+
+  reference(id: string): Draft {
+    assertAuthorized(this.#client, "drafts.reference()");
+    return new Draft(this.#client, id);
+  }
+
+  list(signal?: AbortSignal): Promise<Draft[]> {
+    return fetchDrafts(this.#client, signal);
+  }
+
+  async create(
     options: DraftCreateOptions,
     signal?: AbortSignal,
-  ): Promise<Draft> => {
-    assertAuthorized(client, "drafts.create()");
+  ): Promise<Draft> {
+    assertAuthorized(this.#client, "drafts.create()");
     signal?.throwIfAborted();
-    const response = await client.request({
+    const response = await this.#client.request({
       method: "POST",
       path: "/api/v1/draft",
       data: prepareDraftData(options, true),
       ...(signal === undefined ? {} : { signal }),
     });
-    new Objector(client).objectify(response);
-    return new Draft(client, draftData(response));
-  };
-  return domain;
+    new Objector(this.#client).objectify(response);
+    return new Draft(this.#client, draftData(response));
+  }
 }

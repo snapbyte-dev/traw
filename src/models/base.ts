@@ -272,5 +272,3 @@ export abstract class RedditModel extends BaseModel {
 
   protected abstract fetchRequest(): Pick<RedditRequest, "params" | "path">;
 }
-
-export { BaseModel as PrawBase, RedditModel as RedditBase };

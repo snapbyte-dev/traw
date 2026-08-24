@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import { Listing, type ListingOptions } from "../listing.js";
 import { Comment } from "../models/entities.js";
 import {
@@ -15,7 +15,7 @@ export type InboxStreamOptions = StreamOptions<InboxItem>;
 
 function assertAuthorized(client: MessageClient, operation: string): void {
   if (client.readOnly)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 function fullname(value: InboxReference): string {
@@ -203,8 +203,4 @@ export class InboxDomain {
       messageObjector(this.#client).objectify(response);
     }
   }
-}
-
-export function createInboxDomain(client: MessageClient): InboxDomain {
-  return new InboxDomain(client);
 }

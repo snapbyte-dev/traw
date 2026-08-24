@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   Announcement,
-  createAnnouncementsDomain,
+  AnnouncementsDomain,
   type AnnouncementsClient,
 } from "../src/domains/announcements.js";
 import type { RedditRequest } from "../src/models/base.js";
@@ -33,8 +33,8 @@ describe("standalone announcements", () => {
       data: [{ id: "ann_one", subject: "Notice" }],
     });
 
-    const domain = createAnnouncementsDomain(client);
-    const [announcement] = await collect(domain({ limit: 1, signal }));
+    const domain = new AnnouncementsDomain(client);
+    const [announcement] = await collect(domain.list({ limit: 1, signal }));
 
     expect(announcement).toBeInstanceOf(Announcement);
     expect(announcement?.fullname).toBe("ann_one");
@@ -53,7 +53,7 @@ describe("standalone announcements", () => {
       after: null,
       data: [{ kind: "Announcement", data: { id: "ann_alias" } }],
     });
-    const domain = createAnnouncementsDomain(client);
+    const domain = new AnnouncementsDomain(client);
     const listing = domain.list({ limit: null, requestLimit: 7 });
     const [announcement] = await collect(listing);
     expect(announcement).toBeInstanceOf(Announcement);
@@ -62,7 +62,7 @@ describe("standalone announcements", () => {
 
   it("batches selective mutations by 100 and supports model actions", async () => {
     const { client, request } = setup();
-    const domain = createAnnouncementsDomain(client);
+    const domain = new AnnouncementsDomain(client);
     const ids = Array.from({ length: 101 }, (_, index) => `ann_${index}`);
     const signal = new AbortController().signal;
 
@@ -93,13 +93,13 @@ describe("standalone announcements", () => {
 
   it("enforces authorization, validation, and pre-request cancellation", async () => {
     const blocked = setup(true);
-    const domain = createAnnouncementsDomain(blocked.client);
-    expect(() => domain()).toThrow("read-only");
+    const domain = new AnnouncementsDomain(blocked.client);
+    expect(() => domain.list()).toThrow("read-only");
     await expect(domain.hide([])).rejects.toThrow("read-only");
 
     const { client, request } = setup();
     await expect(
-      createAnnouncementsDomain(client).markRead([" "]),
+      new AnnouncementsDomain(client).markRead([" "]),
     ).rejects.toThrow("announcement ID cannot be empty");
     expect(() => new Announcement(client, {}).fullname).toThrow(
       "valid identity",
@@ -107,7 +107,7 @@ describe("standalone announcements", () => {
     const controller = new AbortController();
     controller.abort(new Error("stopped"));
     await expect(
-      createAnnouncementsDomain(client).markAllRead(controller.signal),
+      new AnnouncementsDomain(client).markAllRead(controller.signal),
     ).rejects.toThrow("stopped");
     expect(request).not.toHaveBeenCalled();
   });

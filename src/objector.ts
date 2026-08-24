@@ -4,7 +4,6 @@ import {
   type RedditClientLike,
 } from "./models/base.js";
 import {
-  Message,
   createEntityContext,
   objectifyComment,
   objectifyMoreComments,
@@ -13,7 +12,8 @@ import {
   objectifySubreddit,
   type EntityContext,
 } from "./models/entities.js";
-import { RedditAPIException, type RedditError } from "./exceptions.js";
+import { objectifyMessage } from "./models/messages.js";
+import { RedditApiError, type RedditError } from "./exceptions.js";
 import { LiveContributor, LiveThread } from "./models/live.js";
 import {
   parseMultireddit,
@@ -35,17 +35,9 @@ const DEFAULT_PARSERS: Readonly<Record<string, ModelParser>> = {
   t1: (client, data, context) => objectifyComment(client, data, context),
   t2: (client, data, context) => objectifyRedditor(client, data, context),
   t3: (client, data, context) => objectifySubmission(client, data, context),
-  t4: (client, data) => new Message(client, data),
+  t4: (client, data) => objectifyMessage(client, data),
   t5: (client, data, context) => objectifySubreddit(client, data, context),
 };
-
-const REGISTERED_PARSERS: Record<string, ModelParser> = {};
-
-export function registerModelParsers(
-  parsers: Readonly<Record<string, ModelParser>>,
-): void {
-  Object.assign(REGISTERED_PARSERS, parsers);
-}
 
 function shapeKind(data: RawData): string | undefined {
   if (
@@ -81,7 +73,7 @@ export class Objector {
     parsers: Readonly<Record<string, ModelParser>> = {},
   ) {
     this.client = client;
-    this.parsers = { ...DEFAULT_PARSERS, ...REGISTERED_PARSERS, ...parsers };
+    this.parsers = { ...DEFAULT_PARSERS, ...parsers };
   }
 
   objectify(value: unknown): unknown {
@@ -100,7 +92,7 @@ export class Objector {
     if (isRawData(json) && Array.isArray(json["errors"])) {
       const errors = json["errors"];
       if (errors.length > 0)
-        throw new RedditAPIException(errors as readonly RedditError[]);
+        throw new RedditApiError(errors as readonly RedditError[]);
     }
 
     if (typeof value["kind"] === "string" && "data" in value) {
@@ -130,8 +122,4 @@ export class Objector {
     }
     return result;
   }
-}
-
-export function objectify(client: RedditClientLike, value: unknown): unknown {
-  return new Objector(client).objectify(value);
 }

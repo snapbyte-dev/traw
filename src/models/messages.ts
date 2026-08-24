@@ -1,5 +1,5 @@
-import { ReadOnlyException } from "../exceptions.js";
-import { Objector, registerModelParsers } from "../objector.js";
+import { ReadOnlyError } from "../exceptions.js";
+import { Objector } from "../objector.js";
 import {
   isRawData,
   postRequest,
@@ -8,12 +8,8 @@ import {
   type RedditClientLike,
   type RedditRequest,
 } from "./base.js";
-import {
-  Comment,
-  Message as EntityMessage,
-  Redditor,
-  Subreddit,
-} from "./entities.js";
+import { Comment, Redditor, Subreddit } from "./entities.js";
+import { MessageBase } from "./message-base.js";
 import type { ActionOptions } from "./mixins.js";
 
 export interface MessageClient extends RedditClientLike {
@@ -24,7 +20,7 @@ export type MessageReply = Comment | Message | null;
 
 function assertAuthorized(client: MessageClient, operation: string): void {
   if (client.readOnly)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 function nonEmpty(value: string, name: string): string {
@@ -87,7 +83,7 @@ function objectifiedMessageData(client: MessageClient, data: RawData): RawData {
   return result;
 }
 
-export class Message extends EntityMessage {
+export class Message extends MessageBase {
   declare author: unknown;
   declare body: unknown;
   declare dest: unknown;
@@ -290,5 +286,3 @@ export function objectifyMessageThread(
   for (const root of roots) visit(root, null);
   return all;
 }
-
-registerModelParsers({ t4: objectifyMessage });

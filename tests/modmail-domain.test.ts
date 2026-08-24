@@ -76,13 +76,13 @@ describe("standalone modmail domain", () => {
   it("fetches and objectifies a realistic conversation envelope", async () => {
     const api = client([conversationEnvelope()]);
     const signal = new AbortController().signal;
-    const conversation = await new ModmailDomain(api, "typescript").fetch(
-      "abc",
-      {
-        markRead: true,
-        signal,
-      },
-    );
+    const conversation = await new ModmailDomain(
+      api,
+      "typescript",
+    ).conversation("abc", {
+      markRead: true,
+      signal,
+    });
 
     expect(conversation).toBeInstanceOf(ModmailConversation);
     expect(conversation.owner).toBeInstanceOf(Subreddit);
@@ -156,9 +156,7 @@ describe("standalone modmail domain", () => {
     await expect(
       domain.create({ body: "Body", recipient: "person", subject: "Subject" }),
     ).resolves.toBeInstanceOf(ModmailConversation);
-    expect((await domain.participatingSubreddits())[0]).toBeInstanceOf(
-      Subreddit,
-    );
+    expect((await domain.subreddits())[0]).toBeInstanceOf(Subreddit);
     expect((await domain.bulkRead({ state: "new" })).map(String)).toEqual([
       "created",
       "other",
@@ -500,7 +498,7 @@ describe("standalone modmail domain", () => {
     ).toThrow("invalid modmail participant");
   });
 
-  it("orders parser objects, falls back to maps and arrays, and registers parsers", () => {
+  it("orders parser objects without globally registering parsers", () => {
     const api = client();
     const parsed = parseModmailConversation(api, {
       conversation: {
@@ -521,16 +519,12 @@ describe("standalone modmail domain", () => {
     );
     expect(parseModmailAction(api, { id: "a" })).toBeInstanceOf(ModmailAction);
 
-    const objector = new Objector(api);
     expect(
-      objector.objectify({ kind: "modmail_message", data: { id: "m" } }),
-    ).toBeInstanceOf(ModmailMessage);
-    expect(
-      objector.objectify({ kind: "modmail_action", data: { id: "a" } }),
-    ).toBeInstanceOf(ModmailAction);
-    expect(
-      objector.objectify({ kind: "modmail_conversation", data: { id: "c" } }),
-    ).toBeInstanceOf(ModmailConversation);
+      new Objector(api).objectify({
+        kind: "modmail_message",
+        data: { id: "m" },
+      }),
+    ).toEqual({ kind: "modmail_message", data: { id: "m" } });
   });
 
   it("refreshes and validates reply envelopes and conversation actions", async () => {

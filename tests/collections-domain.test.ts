@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  SubredditCollections,
-  createSubredditCollections,
-} from "../src/domains/collections.js";
+import { SubredditCollections } from "../src/domains/collections.js";
 import {
   Collection,
   type CollectionsClient,
@@ -54,7 +51,7 @@ describe("standalone collections", () => {
     Reflect.deleteProperty(summary, "sorted_links");
     request.mockResolvedValue([summary]);
 
-    const domain = createSubredditCollections(client, subreddit);
+    const domain = new SubredditCollections(client, subreddit);
     const [collection] = await domain.list();
 
     expect(domain).toBeInstanceOf(SubredditCollections);
@@ -71,7 +68,7 @@ describe("standalone collections", () => {
   it("gets lazy references by ID and permalink and hydrates them", async () => {
     const { client, request, subreddit } = setup();
     request.mockResolvedValue({ data: collectionData() });
-    const domain = createSubredditCollections(client, subreddit);
+    const domain = new SubredditCollections(client, subreddit);
 
     const byId = domain.get("collection-one");
     const byPermalink = domain.getByPermalink(
@@ -97,7 +94,7 @@ describe("standalone collections", () => {
     request.mockResolvedValue({ json: { data: collectionData("created") } });
     const signal = new AbortController().signal;
 
-    const created = await createSubredditCollections(client, subreddit).create(
+    const created = await new SubredditCollections(client, subreddit).create(
       { description: "Description", layout: "GALLERY", title: "Gallery" },
       signal,
     );
@@ -157,7 +154,7 @@ describe("standalone collections", () => {
 
   it("enforces auth, input limits, permalink ownership, and cancellation", async () => {
     const blocked = setup(true);
-    const blockedDomain = createSubredditCollections(
+    const blockedDomain = new SubredditCollections(
       blocked.client,
       blocked.subreddit,
     );
@@ -167,7 +164,7 @@ describe("standalone collections", () => {
     await expect(blockedDomain.get("id").follow()).rejects.toThrow("read-only");
 
     const { client, request, subreddit } = setup();
-    const domain = createSubredditCollections(client, subreddit);
+    const domain = new SubredditCollections(client, subreddit);
     expect(() => domain.get(" ")).toThrow("collection ID cannot be empty");
     expect(() => domain.getByPermalink("/r/other/collection/id")).toThrow(
       "different subreddit",
@@ -188,7 +185,7 @@ describe("standalone collections", () => {
 
   it("rejects malformed collection and submission responses", async () => {
     const { client, request, subreddit } = setup();
-    const domain = createSubredditCollections(client, subreddit);
+    const domain = new SubredditCollections(client, subreddit);
     request.mockResolvedValueOnce({ nope: true });
     await expect(domain.list()).rejects.toThrow("invalid collections data");
 
@@ -214,7 +211,7 @@ describe("standalone collections", () => {
 
   it("validates permalink forms, submission references, and update limits", async () => {
     const { client, request, subreddit } = setup();
-    const domain = createSubredditCollections(client, subreddit);
+    const domain = new SubredditCollections(client, subreddit);
     const collection = domain.get("id");
 
     expect(
@@ -259,7 +256,7 @@ describe("standalone collections", () => {
       })
       .mockResolvedValueOnce([collectionData()]);
     const signal = new AbortController().signal;
-    await createSubredditCollections(client, lazy).list(signal);
+    await new SubredditCollections(client, lazy).list(signal);
     expect(request.mock.calls[0]?.[0]).toMatchObject({ signal });
     expect(request.mock.calls[1]?.[0]).toMatchObject({
       params: { sr_fullname: "t5_abc" },
@@ -269,16 +266,16 @@ describe("standalone collections", () => {
     const missing = new Subreddit(client, "missing");
     vi.spyOn(missing, "load").mockResolvedValue(missing);
     await expect(
-      createSubredditCollections(client, missing).list(),
+      new SubredditCollections(client, missing).list(),
     ).rejects.toThrow("no fullname");
     await expect(
-      createSubredditCollections(client, missing).create({
+      new SubredditCollections(client, missing).create({
         description: "",
         title: "title",
       }),
     ).rejects.toThrow("no fullname");
 
-    const domain = createSubredditCollections(client, lazy);
+    const domain = new SubredditCollections(client, lazy);
     await expect(
       domain.create({ description: "", title: "x".repeat(301) }),
     ).rejects.toThrow("300");

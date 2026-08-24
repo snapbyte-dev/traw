@@ -1,4 +1,4 @@
-import { RequestException } from "../exceptions.js";
+import { RequestError } from "../exceptions.js";
 import type {
   Transport,
   TransportRequest,
@@ -85,7 +85,7 @@ export class FetchTransport implements Transport {
       if (request.signal?.aborted === true) {
         throw request.signal.reason ?? error;
       }
-      const requestError = new RequestException(
+      const requestError = new RequestError(
         timeoutSignal?.aborted === true
           ? (timeoutSignal.reason ?? error)
           : error,

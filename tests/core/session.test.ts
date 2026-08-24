@@ -1,21 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  BadJSON,
-  BadRequest,
-  Conflict,
-  Forbidden,
-  InvalidToken,
-  NotFound,
-  Redirect,
-  RequestException,
-  ResponseException,
+  BadJsonError,
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  InvalidTokenError,
+  NotFoundError,
+  RedirectError,
+  RequestError,
+  ResponseError,
   ServerError,
   SpecialError,
-  TooLarge,
-  TooManyRequests,
-  URITooLong,
-  UnavailableForLegalReasons,
+  PayloadTooLargeError,
+  TooManyRequestsError,
+  UriTooLongError,
+  UnavailableForLegalReasonsError,
 } from "../../src/exceptions.js";
 import type { Clock } from "../../src/core/clock.js";
 import { Session } from "../../src/core/session.js";
@@ -53,7 +53,7 @@ function setup(responses: TransportResponse[]): {
     async () => responses.shift()!,
   );
   const transport: Transport = {
-    isRetryableError: (error) => error instanceof RequestException,
+    isRetryableError: (error) => error instanceof RequestError,
     send,
   };
   const clock: Clock = { now: () => 0, sleep: vi.fn(async () => undefined) };
@@ -135,12 +135,10 @@ describe("Session", () => {
 
   it("makes three attempts for transport failures", async () => {
     const { send, session } = setup([]);
-    send.mockRejectedValue(
-      new RequestException(new TypeError("network failed")),
-    );
+    send.mockRejectedValue(new RequestError(new TypeError("network failed")));
     await expect(
       session.request({ method: "GET", path: "/" }),
-    ).rejects.toBeInstanceOf(RequestException);
+    ).rejects.toBeInstanceOf(RequestError);
     expect(send).toHaveBeenCalledTimes(3);
   });
 
@@ -154,8 +152,8 @@ describe("Session", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
-  it("does not retry an ineligible RequestException", async () => {
-    const failure = new RequestException(new Error("not retryable"));
+  it("does not retry an ineligible RequestError", async () => {
+    const failure = new RequestError(new Error("not retryable"));
     const send = vi.fn(async () => {
       throw failure;
     });
@@ -344,24 +342,24 @@ describe("Session", () => {
     ).resolves.toBe("");
     await expect(
       session.request({ method: "GET", path: "/bad" }),
-    ).rejects.toBeInstanceOf(BadJSON);
+    ).rejects.toBeInstanceOf(BadJsonError);
   });
 
   it.each([
-    [301, Redirect],
-    [302, Redirect],
-    [400, BadRequest],
-    [401, InvalidToken],
-    [403, Forbidden],
-    [404, NotFound],
-    [409, Conflict],
-    [413, TooLarge],
-    [414, URITooLong],
-    [429, TooManyRequests],
-    [451, UnavailableForLegalReasons],
+    [301, RedirectError],
+    [302, RedirectError],
+    [400, BadRequestError],
+    [401, InvalidTokenError],
+    [403, ForbiddenError],
+    [404, NotFoundError],
+    [409, ConflictError],
+    [413, PayloadTooLargeError],
+    [414, UriTooLongError],
+    [429, TooManyRequestsError],
+    [451, UnavailableForLegalReasonsError],
     [500, ServerError],
     [599, ServerError],
-    [418, ResponseException],
+    [418, ResponseError],
   ] as const)("maps HTTP %i to %s", async (status, Exception) => {
     const headers =
       status === 301 || status === 302 ? { location: "/destination.json" } : {};
@@ -414,7 +412,7 @@ describe("Session", () => {
     });
     await expect(
       session.request({ method: "GET", path: "/" }),
-    ).rejects.toBeInstanceOf(InvalidToken);
+    ).rejects.toBeInstanceOf(InvalidTokenError);
     expect(invalidate).toHaveBeenCalledOnce();
   });
 
@@ -432,7 +430,7 @@ describe("Session", () => {
     });
     await expect(
       session.request({ method: "GET", path: "/" }),
-    ).rejects.toBeInstanceOf(InvalidToken);
+    ).rejects.toBeInstanceOf(InvalidTokenError);
     expect(send).toHaveBeenCalledOnce();
     expect(invalidate).toHaveBeenCalledOnce();
   });

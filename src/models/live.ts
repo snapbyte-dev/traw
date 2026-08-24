@@ -1,11 +1,11 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import {
   Listing,
   type ListingOptions,
   type ListingPageAdapter,
 } from "../listing.js";
 import { Objector } from "../objector.js";
-import { pollingStream, type StreamOptions } from "../stream.js";
+import { streamGenerator, type StreamOptions } from "../stream.js";
 import {
   BaseModel,
   isRawData,
@@ -59,7 +59,7 @@ const REPORT_REASONS: readonly LiveReportReason[] = [
 
 function authorized(client: LiveClient, operation: string): void {
   if (client.readOnly === true)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 export function requiredLiveString(value: string, name: string): string {
@@ -662,7 +662,7 @@ export class LiveThreadStream {
   updates(
     options: ListingOptions & StreamOptions<LiveUpdate> = {},
   ): AsyncGenerator<LiveUpdate | null> {
-    return pollingStream(
+    return streamGenerator(
       ({ before, limit, signal }) =>
         this.thread.updates({
           ...options,

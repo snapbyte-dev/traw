@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import {
   announcementsPageAdapter,
   Listing,
@@ -23,7 +23,7 @@ function assertAuthorized(
   operation: string,
 ): void {
   if (client.readOnly)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 function announcementId(value: AnnouncementReference): string {
@@ -98,30 +98,20 @@ export class Announcement extends BaseModel {
   }
 }
 
-export interface AnnouncementsDomain {
-  (options?: ListingOptions): Listing<Announcement>;
-  list(options?: ListingOptions): Listing<Announcement>;
-  hide(
-    announcements: Iterable<AnnouncementReference>,
-    signal?: AbortSignal,
-  ): Promise<void>;
-  markRead(
-    announcements: Iterable<AnnouncementReference>,
-    signal?: AbortSignal,
-  ): Promise<void>;
-  markAllRead(signal?: AbortSignal): Promise<void>;
-}
+export class AnnouncementsDomain {
+  readonly #client: AnnouncementsClient;
 
-export function createAnnouncementsDomain(
-  client: AnnouncementsClient,
-): AnnouncementsDomain {
-  const list = (options: ListingOptions = {}): Listing<Announcement> => {
-    assertAuthorized(client, "announcements()");
+  constructor(client: AnnouncementsClient) {
+    this.#client = client;
+  }
+
+  list(options: ListingOptions = {}): Listing<Announcement> {
+    assertAuthorized(this.#client, "announcements.list()");
     const requestLimit =
       options.requestLimit ?? Math.max(1, Math.min(options.limit ?? 100, 100));
-    return new Listing(client, "/api/announcements/v1", {
+    return new Listing(this.#client, "/api/announcements/v1", {
       ...options,
-      objector: new Objector(client, {
+      objector: new Objector(this.#client, {
         ann: (modelClient, data) =>
           new Announcement(modelClient as AnnouncementsClient, data),
         Announcement: (modelClient, data) =>
@@ -130,40 +120,42 @@ export function createAnnouncementsDomain(
       pageAdapter: announcementsPageAdapter,
       requestLimit,
     });
-  };
-  return Object.assign(list, {
-    list,
-    hide: (
-      announcements: Iterable<AnnouncementReference>,
-      signal?: AbortSignal,
-    ) =>
-      mutate(
-        client,
-        "announcements.hide()",
-        "/api/announcements/v1/hide",
-        announcements,
-        signal,
-      ),
-    markRead: (
-      announcements: Iterable<AnnouncementReference>,
-      signal?: AbortSignal,
-    ) =>
-      mutate(
-        client,
-        "announcements.markRead()",
-        "/api/announcements/v1/read",
-        announcements,
-        signal,
-      ),
-    async markAllRead(signal?: AbortSignal): Promise<void> {
-      assertAuthorized(client, "announcements.markAllRead()");
-      signal?.throwIfAborted();
-      const response = await client.request({
-        method: "POST",
-        path: "/api/announcements/v1/read_all",
-        ...(signal === undefined ? {} : { signal }),
-      });
-      new Objector(client).objectify(response);
-    },
-  });
+  }
+
+  hide(
+    announcements: Iterable<AnnouncementReference>,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return mutate(
+      this.#client,
+      "announcements.hide()",
+      "/api/announcements/v1/hide",
+      announcements,
+      signal,
+    );
+  }
+
+  markRead(
+    announcements: Iterable<AnnouncementReference>,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return mutate(
+      this.#client,
+      "announcements.markRead()",
+      "/api/announcements/v1/read",
+      announcements,
+      signal,
+    );
+  }
+
+  async markAllRead(signal?: AbortSignal): Promise<void> {
+    assertAuthorized(this.#client, "announcements.markAllRead()");
+    signal?.throwIfAborted();
+    const response = await this.#client.request({
+      method: "POST",
+      path: "/api/announcements/v1/read_all",
+      ...(signal === undefined ? {} : { signal }),
+    });
+    new Objector(this.#client).objectify(response);
+  }
 }

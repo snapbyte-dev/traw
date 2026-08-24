@@ -2,15 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   Comment,
-  Message,
   MoreComments,
   Redditor,
   Submission,
   Subreddit,
   UserSubreddit,
 } from "../src/models/entities.js";
-import { RedditAPIException } from "../src/exceptions.js";
-import { Objector, objectify } from "../src/objector.js";
+import { Message } from "../src/models/messages.js";
+import { RedditApiError } from "../src/exceptions.js";
+import { Objector } from "../src/objector.js";
 import { LiveContributor, LiveThread } from "../src/models/live.js";
 import { Multireddit } from "../src/models/multireddit.js";
 
@@ -57,7 +57,7 @@ describe("Objector", () => {
       objector.objectify({
         json: { errors: [["BAD_FIELD", "Invalid value", "name"]] },
       }),
-    ).toThrow(RedditAPIException);
+    ).toThrow(RedditApiError);
     expect(objector.objectify({ json: { errors: [] } })).toEqual({
       json: { errors: [] },
     });
@@ -67,7 +67,7 @@ describe("Objector", () => {
   });
 
   it("parses every wrapped kind and recursively handles arrays", () => {
-    const result = objectify(client, [
+    const result = new Objector(client).objectify([
       { kind: "t1", data: { id: "c", parent_id: "t3_p" } },
       { kind: "t2", data: { name: "user", comment_karma: 1 } },
       { kind: "t3", data: { id: "p", title: "post" } },

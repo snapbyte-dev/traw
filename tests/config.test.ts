@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { Config } from "../src/config.js";
 import {
-  ClientException,
-  MissingRequiredAttributeException,
+  ClientError,
+  MissingRequiredAttributeError,
 } from "../src/exceptions.js";
 
 const credentials = {
@@ -167,7 +167,7 @@ describe("Config", () => {
           { clientId: " ", clientSecret: "secret", userAgent: "agent" },
           {},
         ),
-    ).toThrow(MissingRequiredAttributeException);
+    ).toThrow(MissingRequiredAttributeError);
     expect(
       () => new Config({ clientId: "id", userAgent: "agent" }, {}),
     ).toThrow(/explicitly set to null/);
@@ -188,7 +188,7 @@ describe("Config", () => {
     expect(
       () =>
         new Config({ ...credentials, redditUrl: "https://proxy.example" }, {}),
-    ).toThrow(ClientException);
+    ).toThrow(ClientError);
     expect(
       () =>
         new Config({ ...credentials, oauthUrl: "https://oauth.example" }, {}),

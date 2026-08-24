@@ -42,11 +42,11 @@ class NamedError extends Error {
   }
 }
 
-export class PRAWException extends NamedError {}
+export class TrawError extends NamedError {}
 
-export class ClientException extends PRAWException {}
+export class ClientError extends TrawError {}
 
-export class DuplicateReplaceException extends ClientException {
+export class DuplicateReplaceError extends ClientError {
   constructor() {
     super(
       "A duplicate comment has been detected. Are you attempting to call 'replace_more_comments' more than once?",
@@ -54,7 +54,7 @@ export class DuplicateReplaceException extends ClientException {
   }
 }
 
-export class InvalidFlairTemplateID extends ClientException {
+export class InvalidFlairTemplateIdError extends ClientError {
   readonly templateId: string;
 
   constructor(templateId: string) {
@@ -65,13 +65,13 @@ export class InvalidFlairTemplateID extends ClientException {
   }
 }
 
-export class InvalidImplicitAuth extends ClientException {
+export class InvalidImplicitAuthError extends ClientError {
   constructor() {
     super("Implicit authorization can only be used with installed apps.");
   }
 }
 
-export class InvalidURL extends ClientException {
+export class InvalidUrlError extends ClientError {
   readonly url: string;
 
   constructor(url: string, message = "Invalid URL: {}") {
@@ -80,11 +80,11 @@ export class InvalidURL extends ClientException {
   }
 }
 
-export class MissingRequiredAttributeException extends ClientException {}
+export class MissingRequiredAttributeError extends ClientError {}
 
-export class ReadOnlyException extends ClientException {}
+export class ReadOnlyError extends ClientError {}
 
-export class TooLargeMediaException extends ClientException {
+export class MediaTooLargeError extends ClientError {
   readonly actual: number;
   readonly maximumSize: number;
 
@@ -101,9 +101,9 @@ export class TooLargeMediaException extends ClientException {
   }
 }
 
-export class WebSocketException extends ClientException {}
+export class WebSocketError extends ClientError {}
 
-export class MediaPostFailed extends WebSocketException {
+export class MediaPostFailedError extends WebSocketError {
   constructor() {
     super(
       "The attempted media upload action has failed. Possible causes include the corruption of media files. Check that the media file can be opened on your local machine.",
@@ -160,7 +160,7 @@ export type RedditErrorTuple = readonly [
 ];
 export type RedditError = RedditErrorItem | RedditErrorTuple;
 
-export class RedditAPIException extends PRAWException {
+export class RedditApiError extends TrawError {
   readonly items: readonly RedditErrorItem[];
 
   static parseExceptionList(errors: readonly RedditError[]): RedditErrorItem[] {
@@ -183,17 +183,17 @@ export class RedditAPIException extends PRAWException {
     } else {
       list = errors as readonly RedditError[];
     }
-    const items = RedditAPIException.parseExceptionList(list);
+    const items = RedditApiError.parseExceptionList(list);
     super(items.map(String).join(", "));
     this.items = items;
   }
 }
 
-export class PrawcoreException extends NamedError {}
+export class RedditCoreError extends NamedError {}
 
-export class InvalidInvocation extends PrawcoreException {}
+export class InvalidInvocationError extends RedditCoreError {}
 
-export class OAuthException extends PrawcoreException {
+export class OAuthError extends RedditCoreError {
   readonly response: HttpResponse;
   readonly error: string;
   readonly description: string | null;
@@ -212,7 +212,7 @@ export class OAuthException extends PrawcoreException {
   }
 }
 
-export class RequestException extends PrawcoreException {
+export class RequestError extends RedditCoreError {
   readonly originalError: unknown;
   readonly request: Readonly<RequestMetadata>;
 
@@ -227,7 +227,7 @@ export class RequestException extends PrawcoreException {
   }
 }
 
-export class ResponseException extends PrawcoreException {
+export class ResponseError extends RedditCoreError {
   readonly response: HttpResponse;
   readonly status: number;
 
@@ -238,19 +238,19 @@ export class ResponseException extends PrawcoreException {
   }
 }
 
-export class BadJSON extends ResponseException {}
-export class BadRequest extends ResponseException {}
-export class Conflict extends ResponseException {}
-export class Forbidden extends ResponseException {}
-export class InsufficientScope extends ResponseException {}
-export class InvalidToken extends ResponseException {}
-export class NotFound extends ResponseException {}
-export class ServerError extends ResponseException {}
-export class TooLarge extends ResponseException {}
-export class URITooLong extends ResponseException {}
-export class UnavailableForLegalReasons extends ResponseException {}
+export class BadJsonError extends ResponseError {}
+export class BadRequestError extends ResponseError {}
+export class ConflictError extends ResponseError {}
+export class ForbiddenError extends ResponseError {}
+export class InsufficientScopeError extends ResponseError {}
+export class InvalidTokenError extends ResponseError {}
+export class NotFoundError extends ResponseError {}
+export class ServerError extends ResponseError {}
+export class PayloadTooLargeError extends ResponseError {}
+export class UriTooLongError extends ResponseError {}
+export class UnavailableForLegalReasonsError extends ResponseError {}
 
-export class Redirect extends ResponseException {
+export class RedirectError extends ResponseError {
   readonly path: string;
 
   constructor(response: HttpResponse) {
@@ -277,7 +277,7 @@ export interface SpecialErrorPayload {
   readonly specialErrors?: readonly unknown[];
 }
 
-export class SpecialError extends ResponseException {
+export class SpecialError extends ResponseError {
   readonly apiMessage: string;
   readonly reason: string;
   readonly specialErrors: readonly unknown[];
@@ -305,7 +305,7 @@ export class SpecialError extends ResponseException {
   }
 }
 
-export class TooManyRequests extends ResponseException {
+export class TooManyRequestsError extends ResponseError {
   readonly retryAfter: string | null;
   readonly responseBody: string;
 

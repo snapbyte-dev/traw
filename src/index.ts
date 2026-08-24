@@ -1,6 +1,46 @@
 export { Config, type ConfigOptions } from "./config.js";
-export * from "./exceptions.js";
 export {
+  BadJsonError,
+  BadRequestError,
+  ClientError,
+  ConflictError,
+  DuplicateReplaceError,
+  ForbiddenError,
+  InsufficientScopeError,
+  InvalidFlairTemplateIdError,
+  InvalidImplicitAuthError,
+  InvalidInvocationError,
+  InvalidTokenError,
+  InvalidUrlError,
+  MediaPostFailedError,
+  MediaTooLargeError,
+  MissingRequiredAttributeError,
+  NotFoundError,
+  OAuthError,
+  PayloadTooLargeError,
+  ReadOnlyError,
+  RedirectError,
+  RedditApiError,
+  RedditCoreError,
+  RedditErrorItem,
+  RequestError,
+  ResponseError,
+  ServerError,
+  SpecialError,
+  TooManyRequestsError,
+  TrawError,
+  UnavailableForLegalReasonsError,
+  UriTooLongError,
+  WebSocketError,
+  type HttpHeaders,
+  type HttpResponse,
+  type RedditError,
+  type RedditErrorTuple,
+  type RequestMetadata,
+  type SpecialErrorPayload,
+} from "./exceptions.js";
+export {
+  Auth,
   Authenticator,
   Authorizer,
   type AuthDuration,
@@ -39,83 +79,62 @@ export {
   type WebSocketFactory,
   type WebSocketLike,
 } from "./core/transport.js";
-export { type NotesOptions } from "./domains.js";
+export { RedditorsDomain } from "./domains/redditors.js";
 export {
   SubredditsDomain,
   type CreateSubredditOptions,
-  type SubredditsClient,
 } from "./domains/subreddits.js";
 export {
   AccountDomain,
+  PreferencesDomain,
   Trophy,
-  createAccountDomain,
   type AccountPreferenceValue,
   type AccountPreferences,
   type CommunityKarma,
   type FriendOptions,
   type MeOptions,
   type PinOptions,
-  type PreferencesDomain,
 } from "./domains/account.js";
 export {
   Announcement,
-  createAnnouncementsDomain,
   type AnnouncementReference,
-  type AnnouncementsDomain,
+  AnnouncementsDomain,
 } from "./domains/announcements.js";
 export {
   Draft,
-  createDraftsDomain,
+  DraftsDomain,
   type DraftCreateOptions,
   type DraftSubmitOptions,
   type DraftUpdateOptions,
-  type DraftsDomain,
 } from "./domains/drafts.js";
 export {
   InboxDomain,
-  createInboxDomain,
   type InboxItem,
   type InboxReference,
   type InboxStreamOptions,
 } from "./domains/inbox.js";
-export {
-  LiveDomainClient,
-  createLiveDomain,
-  type LiveCreateOptions,
-  type LiveDomain,
-} from "./domains/live.js";
+export { type LiveCreateOptions, LiveDomain } from "./domains/live.js";
 export {
   MultiredditsDomain,
-  createMultiredditDomain,
-  createMultiredditHelper,
   type CreateMultiredditOptions,
   type ListMultiredditsOptions,
-  type MultiredditDomain,
   type MultiredditLoadOptions,
   type MultiredditReferenceOptions,
-  type MultiredditReferenceOptions as MultiredditOptions,
 } from "./domains/multireddits.js";
 export {
   Emoji,
   SubredditEmoji,
-  createSubredditEmoji,
   type EmojiPermissions,
   type EmojiUploadOptions,
 } from "./domains/emoji.js";
 export {
   Stylesheet,
   SubredditStylesheet,
-  createSubredditStylesheet,
   type BannerAlignment,
 } from "./domains/stylesheet.js";
-export {
-  SubredditWiki,
-  createSubredditWiki,
-  type CreateWikiPageOptions,
-} from "./domains/wiki.js";
+export { SubredditWiki, type CreateWikiPageOptions } from "./domains/wiki.js";
 export {
   SubredditCollections,
-  createSubredditCollections,
   type CreateCollectionOptions,
 } from "./domains/collections.js";
 export {
@@ -123,7 +142,6 @@ export {
   SubredditWidgetsModeration,
   WidgetMedia,
   WidgetModeration,
-  createSubredditWidgets,
   type AddButtonWidgetOptions,
   type AddCalendarOptions,
   type AddCommunityListOptions,
@@ -154,9 +172,6 @@ export {
   BaseModNotes,
   RedditorModNotes,
   SubredditModNotes,
-  bulkModNotes,
-  createRedditModNotes,
-  createRedditorModNotes,
   type CreateModNoteOptions,
   type DeleteModNoteOptions,
   type ModNoteFilterOptions,
@@ -165,7 +180,7 @@ export {
   type ModNotePair,
   type ModNoteSelectionOptions,
   type ModNoteThing,
-  type RedditModNotes,
+  RedditModNotes,
 } from "./domains/mod-notes.js";
 export {
   LegacyModmailDomain,
@@ -223,20 +238,37 @@ export {
   type SortedListingOptions,
   type TimeFilter,
 } from "./helpers.js";
-export { type ListingOptions } from "./listing.js";
+export { Listing, type ListingOptions } from "./listing.js";
 export {
   CommentForest,
   type ReplaceMoreOptions,
 } from "./models/comment-forest.js";
-export type {
-  CrosspostOptions,
-  GalleryItem,
-  RemovalMessageOptions,
-  RemovalMessageType,
-  SubmissionEditOptions,
-  SubmitOptions,
+export {
+  Comment,
+  MoreComments,
+  Redditor,
+  Submission,
+  Subreddit,
+  UserSubreddit,
+  type FlairChoice,
+  type FlairSelectOptions,
+  type CrosspostOptions,
+  type GalleryItem,
+  type RemovalMessageOptions,
+  type RemovalMessageType,
+  type SubmissionEditOptions,
+  type SubmitOptions,
 } from "./models/entities.js";
 export {
+  EmojiMedia,
+  InlineGif,
+  InlineImage,
+  InlineMedia,
+  InlineVideo,
+  Media,
+  PostMedia,
+  StylesheetAsset,
+  StylesheetImage,
   type InlineMediaOptions,
   type InlineMediaType,
   type MediaOptions,
@@ -245,7 +277,6 @@ export {
 export {
   Collection,
   type CollectionLayout,
-  type CollectionsClient,
   type SubmissionReference,
 } from "./models/collection.js";
 export {
@@ -257,7 +288,6 @@ export {
   LiveThreadStream,
   LiveUpdate,
   LiveUpdateContribution,
-  type LiveClient,
   type LiveContributorReference,
   type LivePermission,
   type LiveReportReason,
@@ -266,7 +296,6 @@ export {
 export {
   Multireddit,
   MultiredditStream,
-  type MultiredditClient,
   type MultiredditCopyOptions,
   type MultiredditIcon,
   type MultiredditRenameOptions,
@@ -274,13 +303,11 @@ export {
   type MultiredditVisibility,
   type MultiredditWeightingScheme,
   type SortedMultiredditListingOptions,
-  type SubredditReference as MultiredditSubredditReference,
 } from "./models/multireddit.js";
 export {
   WikiPage,
   WikiPageEditors,
   WikiRevision,
-  type WikiClientLike,
   type WikiEditOptions,
   type WikiPermissionLevel,
   type WikiSettings,
@@ -312,11 +339,9 @@ export {
   type WidgetActions,
   type WidgetKind,
 } from "./models/widgets.js";
-export * from "./models/public.js";
 export {
   Message,
   SubredditMessage,
-  type MessageClient,
   type MessageReply,
 } from "./models/messages.js";
 export {
@@ -327,7 +352,6 @@ export {
   ModmailMessage,
   ModmailUser,
   type ModmailActionOptions,
-  type ModmailClient,
   type ModmailConversationData,
   type ModmailMuteOptions,
   type ModmailReplyOptions,
@@ -338,7 +362,6 @@ export {
   ModNote,
   RemovalReason,
   Rule,
-  type ModerationClientLike,
   type RedditorReference,
   type SubredditReference,
   type ThingReference,
@@ -349,14 +372,12 @@ export {
   type ClosableTransport,
   type MethodOptions,
   type RedditHeaderProvider,
-  type RedditLiveDomain,
   type RedditOptions,
   type RequestOptions,
   type ThingOptions,
 } from "./reddit.js";
 export {
   defaultSleep,
-  pollingStream,
   streamGenerator,
   type Sleep,
   type StreamFetcher,

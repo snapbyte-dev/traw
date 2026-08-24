@@ -1,7 +1,4 @@
-import {
-  ClientException,
-  MissingRequiredAttributeException,
-} from "./exceptions.js";
+import { ClientError, MissingRequiredAttributeError } from "./exceptions.js";
 
 const defaults = {
   checkForAsync: true,
@@ -92,7 +89,7 @@ function optionalString(
 
 function required(value: string | null | undefined, key: string): string {
   if (value === null || value === undefined || value.trim() === "") {
-    throw new MissingRequiredAttributeException(
+    throw new MissingRequiredAttributeError(
       `Required configuration setting '${key}' missing. This setting can be provided as a constructor option or as an environment variable.`,
     );
   }
@@ -153,12 +150,12 @@ export class Config {
 
     const clientSecret = optionalString(options, env, "clientSecret");
     if (clientSecret === undefined) {
-      throw new MissingRequiredAttributeException(
+      throw new MissingRequiredAttributeError(
         "Required configuration setting 'clientSecret' missing. For installed applications this value must be explicitly set to null as a constructor option.",
       );
     }
     if (typeof clientSecret === "string" && clientSecret.trim() === "") {
-      throw new MissingRequiredAttributeException(
+      throw new MissingRequiredAttributeError(
         "Configuration setting 'clientSecret' cannot be empty.",
       );
     }
@@ -194,7 +191,7 @@ export class Config {
       !allowEndpointOverride &&
       (oauthUrl !== defaults.oauthUrl || redditUrl !== defaults.redditUrl)
     ) {
-      throw new ClientException(
+      throw new ClientError(
         "Custom Reddit endpoints require allowEndpointOverride: true or TRAW_ALLOW_ENDPOINT_OVERRIDE=true.",
       );
     }
@@ -264,7 +261,7 @@ export class Config {
 
   get shortUrl(): string {
     if (this.#shortUrl === null)
-      throw new ClientException("No short domain specified.");
+      throw new ClientError("No short domain specified.");
     return this.#shortUrl;
   }
 }

@@ -1,15 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ReplayableBody } from "../src/core/transport.js";
+import { Stylesheet, SubredditStylesheet } from "../src/domains/stylesheet.js";
 import {
-  Stylesheet,
-  SubredditStylesheet,
-  createSubredditStylesheet,
-} from "../src/domains/stylesheet.js";
-import {
-  ReadOnlyException,
-  RedditAPIException,
-  ResponseException,
+  ReadOnlyError,
+  RedditApiError,
+  ResponseError,
   ServerError,
 } from "../src/exceptions.js";
 import type { RedditQueryRequest, RedditRequest } from "../src/models/base.js";
@@ -18,7 +14,7 @@ import {
   EmojiMedia,
   StylesheetAsset,
   StylesheetImage,
-} from "../src/models/public.js";
+} from "../src/models/media.js";
 
 type Request = RedditRequest | RedditQueryRequest;
 
@@ -63,8 +59,8 @@ describe("standalone stylesheet", () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ images: [], stylesheet: "a{}" })
       .mockResolvedValueOnce(null);
-    const domain = createSubredditStylesheet(client, "type/script");
-    const result = await domain.read();
+    const domain = new SubredditStylesheet(client, "type/script");
+    const result = await domain.get();
     expect(result).toBeInstanceOf(Stylesheet);
     expect(result.stylesheet).toBe("p{}");
     expect(result.subreddit).toBe("type/script");
@@ -131,11 +127,11 @@ describe("standalone stylesheet", () => {
       .mockResolvedValueOnce({ errors: ["IMAGE_ERROR"] })
       .mockResolvedValueOnce({ errors: [1] })
       .mockResolvedValueOnce({ nope: true });
-    const domain = createSubredditStylesheet(client, "test");
+    const domain = new SubredditStylesheet(client, "test");
     const error = await domain
       .upload(png(), "logo")
       .catch((value: unknown) => value);
-    expect(error).toBeInstanceOf(RedditAPIException);
+    expect(error).toBeInstanceOf(RedditApiError);
     expect(error).toHaveProperty("items.0.message", "bad image");
     await expect(domain.upload(png(), "logo")).rejects.toHaveProperty(
       "items.0.message",
@@ -155,7 +151,7 @@ describe("standalone stylesheet", () => {
         .mockResolvedValueOnce("")
         .mockResolvedValueOnce(null);
     }
-    const domain = createSubredditStylesheet(client, "test");
+    const domain = new SubredditStylesheet(client, "test");
     await domain.uploadBanner(asset());
     await domain.uploadBannerAdditionalImage(asset(), { align: "centered" });
     await domain.uploadBannerHoverImage(asset());
@@ -212,7 +208,7 @@ describe("standalone stylesheet", () => {
       .mockResolvedValueOnce(absoluteLease)
       .mockResolvedValueOnce("")
       .mockResolvedValueOnce(null);
-    await createSubredditStylesheet(client, "test").uploadBannerAdditionalImage(
+    await new SubredditStylesheet(client, "test").uploadBannerAdditionalImage(
       asset(),
     );
     expect(request.mock.calls[1]?.[0].path).toBe(
@@ -226,7 +222,7 @@ describe("standalone stylesheet", () => {
   it("deletes named and standard assets with the expected payloads", async () => {
     const { client, request } = setup();
     const signal = new AbortController().signal;
-    const domain = createSubredditStylesheet(client, "test");
+    const domain = new SubredditStylesheet(client, "test");
     await domain.deleteImage("logo", signal);
     await domain.deleteHeader(signal);
     await domain.deleteMobileHeader(signal);
@@ -260,19 +256,15 @@ describe("standalone stylesheet", () => {
 
   it("enforces read-only mode, names, media classes, and cancellation", async () => {
     const blocked = setup(true);
-    const domain = createSubredditStylesheet(blocked.client, "test");
-    await expect(domain.update("p{}")).rejects.toBeInstanceOf(
-      ReadOnlyException,
-    );
-    await expect(domain.deleteBanner()).rejects.toBeInstanceOf(
-      ReadOnlyException,
-    );
+    const domain = new SubredditStylesheet(blocked.client, "test");
+    await expect(domain.update("p{}")).rejects.toBeInstanceOf(ReadOnlyError);
+    await expect(domain.deleteBanner()).rejects.toBeInstanceOf(ReadOnlyError);
     await expect(domain.upload(png(), "logo")).rejects.toBeInstanceOf(
-      ReadOnlyException,
+      ReadOnlyError,
     );
 
     const { client, request } = setup();
-    const active = createSubredditStylesheet(client, "test");
+    const active = new SubredditStylesheet(client, "test");
     expect(() => active.upload(png(), " ")).toThrow(
       "image name cannot be empty",
     );
@@ -287,9 +279,9 @@ describe("standalone stylesheet", () => {
     ).rejects.toThrow("StylesheetAsset");
     const controller = new AbortController();
     controller.abort(new Error("cancelled"));
-    await expect(active.read(controller.signal)).rejects.toThrow("cancelled");
+    await expect(active.get(controller.signal)).rejects.toThrow("cancelled");
     expect(request).not.toHaveBeenCalled();
-    expect(() => createSubredditStylesheet(client, " ")).toThrow(
+    expect(() => new SubredditStylesheet(client, " ")).toThrow(
       "subreddit cannot be empty",
     );
   });
@@ -297,9 +289,9 @@ describe("standalone stylesheet", () => {
   it("rejects malformed reads and leases", async () => {
     const { client, request } = setup();
     request.mockResolvedValueOnce(null);
-    await expect(
-      createSubredditStylesheet(client, "test").read(),
-    ).rejects.toThrow("invalid stylesheet data");
+    await expect(new SubredditStylesheet(client, "test").get()).rejects.toThrow(
+      "invalid stylesheet data",
+    );
 
     for (const response of [
       {},
@@ -310,7 +302,7 @@ describe("standalone stylesheet", () => {
       const current = setup();
       current.request.mockResolvedValueOnce(response).mockResolvedValueOnce("");
       await expect(
-        createSubredditStylesheet(current.client, "test").uploadBanner(asset()),
+        new SubredditStylesheet(current.client, "test").uploadBanner(asset()),
       ).rejects.toThrow(/lease response/);
     }
   });
@@ -319,9 +311,9 @@ describe("standalone stylesheet", () => {
     const failed = setup();
     failed.request
       .mockResolvedValueOnce(lease())
-      .mockRejectedValueOnce(new ResponseException({ status: 403 }));
+      .mockRejectedValueOnce(new ResponseError({ status: 403 }));
     await expect(
-      createSubredditStylesheet(failed.client, "test").uploadBanner(asset()),
+      new SubredditStylesheet(failed.client, "test").uploadBanner(asset()),
     ).rejects.toBeInstanceOf(ServerError);
 
     const timeout = setup();
@@ -330,7 +322,7 @@ describe("standalone stylesheet", () => {
       .mockResolvedValueOnce(lease())
       .mockRejectedValueOnce(timeoutError);
     await expect(
-      createSubredditStylesheet(timeout.client, "test").uploadBanner(asset()),
+      new SubredditStylesheet(timeout.client, "test").uploadBanner(asset()),
     ).rejects.toBe(timeoutError);
   });
 });

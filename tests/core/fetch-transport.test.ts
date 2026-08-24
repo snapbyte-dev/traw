@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { FetchTransport } from "../../src/core/fetch-transport.js";
 import { replayableText } from "../../src/core/transport.js";
-import { RequestException } from "../../src/exceptions.js";
+import { RequestError } from "../../src/exceptions.js";
 
 describe("FetchTransport", () => {
   it("buffers a response and creates the body for each send", async () => {
@@ -75,7 +75,7 @@ describe("FetchTransport", () => {
     timeout.abort(reason);
 
     const error = await request.catch((value: unknown) => value);
-    expect(error).toBeInstanceOf(RequestException);
+    expect(error).toBeInstanceOf(RequestError);
     expect(error).toMatchObject({ originalError: reason });
     expect(transport.isRetryableError(error)).toBe(true);
     expect(timeoutSpy).toHaveBeenCalledWith(250);
@@ -130,7 +130,7 @@ describe("FetchTransport", () => {
     const error = await new FetchTransport(fetchImplementation)
       .send({ method: "GET", url: "https://example.com/" })
       .catch((value: unknown) => value);
-    expect(error).toBeInstanceOf(RequestException);
+    expect(error).toBeInstanceOf(RequestError);
     expect(error).toMatchObject({ originalError: failure });
     expect(
       new FetchTransport(fetchImplementation).isRetryableError(error),

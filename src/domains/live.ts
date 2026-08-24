@@ -5,7 +5,7 @@ import {
   requiredLiveString,
   type LiveClient,
 } from "../models/live.js";
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 
 export interface LiveCreateOptions {
   readonly description?: string;
@@ -14,19 +14,9 @@ export interface LiveCreateOptions {
   readonly signal?: AbortSignal;
 }
 
-export interface LiveDomain {
-  (id: string): LiveThread;
-  create(title: string, options?: LiveCreateOptions): Promise<LiveThread>;
-  info(
-    ids: readonly string[],
-    signal?: AbortSignal,
-  ): AsyncGenerator<LiveThread>;
-  now(signal?: AbortSignal): Promise<LiveThread | null>;
-}
-
 function authorized(client: LiveClient, operation: string): void {
   if (client.readOnly === true)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 function threadData(value: unknown): RawData {
@@ -55,23 +45,30 @@ function infoChildren(value: unknown): readonly unknown[] {
   return result["children"];
 }
 
-export function createLiveDomain(client: LiveClient): LiveDomain {
-  const domain = ((id: string) =>
-    new LiveThread(
-      client,
-      requiredLiveString(id, "live thread ID"),
-    )) as LiveDomain;
+export class LiveDomain {
+  readonly #client: LiveClient;
 
-  domain.create = async (
+  constructor(client: LiveClient) {
+    this.#client = client;
+  }
+
+  reference(id: string): LiveThread {
+    return new LiveThread(
+      this.#client,
+      requiredLiveString(id, "live thread ID"),
+    );
+  }
+
+  async create(
     title: string,
     options: LiveCreateOptions = {},
-  ): Promise<LiveThread> => {
-    authorized(client, "live.create()");
+  ): Promise<LiveThread> {
+    authorized(this.#client, "live.create()");
     options.signal?.throwIfAborted();
     const normalizedTitle = requiredLiveString(title, "title");
     if (normalizedTitle.length > 120)
       throw new RangeError("title cannot exceed 120 characters");
-    const response = await client.request({
+    const response = await this.#client.request({
       method: "POST",
       path: "/api/live/create",
       data: {
@@ -86,14 +83,14 @@ export function createLiveDomain(client: LiveClient): LiveDomain {
       },
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
-    new Objector(client).objectify(response);
-    return threadFrom(client, response);
-  };
+    new Objector(this.#client).objectify(response);
+    return threadFrom(this.#client, response);
+  }
 
-  domain.info = (
+  info(
     ids: readonly string[],
     signal?: AbortSignal,
-  ): AsyncGenerator<LiveThread> => {
+  ): AsyncGenerator<LiveThread> {
     if (
       !Array.isArray(ids) ||
       !ids.every((id): id is string => typeof id === "string")
@@ -102,6 +99,7 @@ export function createLiveDomain(client: LiveClient): LiveDomain {
     const normalized = ids.map((id) =>
       requiredLiveString(id, "live thread ID"),
     );
+    const client = this.#client;
     return (async function* (): AsyncGenerator<LiveThread> {
       for (let index = 0; index < normalized.length; index += 100) {
         signal?.throwIfAborted();
@@ -116,27 +114,17 @@ export function createLiveDomain(client: LiveClient): LiveDomain {
           yield threadFrom(client, child);
       }
     })();
-  };
+  }
 
-  domain.now = async (signal?: AbortSignal): Promise<LiveThread | null> => {
+  async now(signal?: AbortSignal): Promise<LiveThread | null> {
     signal?.throwIfAborted();
-    const response = await client.request({
+    const response = await this.#client.request({
       method: "GET",
       path: "/api/live/happening_now",
       ...(signal === undefined ? {} : { signal }),
     });
     if (response === null) return null;
     if (isRawData(response) && response["data"] === null) return null;
-    return threadFrom(client, response);
-  };
-
-  return domain;
-}
-
-export class LiveDomainClient {
-  readonly live: LiveDomain;
-
-  constructor(client: LiveClient) {
-    this.live = createLiveDomain(client);
+    return threadFrom(this.#client, response);
   }
 }

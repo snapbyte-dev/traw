@@ -4,17 +4,16 @@ import type { ReplayableBody } from "../src/core/transport.js";
 import {
   Emoji,
   SubredditEmoji,
-  createSubredditEmoji,
   type EmojiUploadOptions,
 } from "../src/domains/emoji.js";
 import {
-  ReadOnlyException,
-  ResponseException,
+  ReadOnlyError,
+  ResponseError,
   ServerError,
 } from "../src/exceptions.js";
 import type { RedditQueryRequest, RedditRequest } from "../src/models/base.js";
 import type { ModerationClientLike } from "../src/models/moderation.js";
-import { EmojiMedia, StylesheetImage } from "../src/models/public.js";
+import { EmojiMedia, StylesheetImage } from "../src/models/media.js";
 
 type Request = RedditRequest | RedditQueryRequest;
 
@@ -58,7 +57,7 @@ describe("standalone emoji", () => {
         },
       },
     });
-    const emojis = createSubredditEmoji(client, "typescript");
+    const emojis = new SubredditEmoji(client, "typescript");
 
     const [listed] = await emojis.list();
     expect(listed).toBeInstanceOf(Emoji);
@@ -88,7 +87,7 @@ describe("standalone emoji", () => {
       userFlairAllowed: true,
     };
 
-    const emoji = await createSubredditEmoji(client, "type/script").upload(
+    const emoji = await new SubredditEmoji(client, "type/script").upload(
       options,
       signal,
     );
@@ -148,7 +147,7 @@ describe("standalone emoji", () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null);
     const emojis = new SubredditEmoji(client, "test");
-    await emojis.add({ media: media(), name: "new" });
+    await emojis.upload({ media: media(), name: "new" });
     const updated = await emojis.update("party", { modFlairOnly: true });
     expect(updated.mod_flair_only).toBe(true);
     await emojis.delete("party");
@@ -198,7 +197,7 @@ describe("standalone emoji", () => {
       { t5_a: { bad: 1 } },
     ]) {
       request.mockResolvedValueOnce(response);
-      await expect(createSubredditEmoji(client, "test").list()).rejects.toThrow(
+      await expect(new SubredditEmoji(client, "test").list()).rejects.toThrow(
         "invalid emoji data",
       );
     }
@@ -206,10 +205,10 @@ describe("standalone emoji", () => {
     expect(() => new Emoji(client, "test", { name: "" }).toString()).toThrow(
       "valid name",
     );
-    expect(() => createSubredditEmoji(client, " ")).toThrow(
+    expect(() => new SubredditEmoji(client, " ")).toThrow(
       "subreddit cannot be empty",
     );
-    expect(() => createSubredditEmoji(client, "test").get(" ")).toThrow(
+    expect(() => new SubredditEmoji(client, "test").get(" ")).toThrow(
       "emoji name cannot be empty",
     );
   });
@@ -218,7 +217,7 @@ describe("standalone emoji", () => {
     const { client, request } = setup();
     request.mockResolvedValueOnce({ t5_test: {} });
     await expect(
-      createSubredditEmoji(client, "test")
+      new SubredditEmoji(client, "test")
         .get("missing")
         .update({ modFlairOnly: true }),
     ).rejects.toThrow("does not have the emoji missing");
@@ -227,30 +226,30 @@ describe("standalone emoji", () => {
       t5_test: { party: { mod_flair_only: false } },
     });
     await expect(
-      createSubredditEmoji(client, "test")
+      new SubredditEmoji(client, "test")
         .get("party")
         .update({ modFlairOnly: true }),
     ).rejects.toThrow("no valid post_flair_allowed");
     await expect(
-      createSubredditEmoji(client, "test").get("party").update({}),
+      new SubredditEmoji(client, "test").get("party").update({}),
     ).rejects.toThrow("At least one");
   });
 
   it("enforces authorization, media types, and cancellation before requests", async () => {
     const blocked = setup(true);
     await expect(
-      createSubredditEmoji(blocked.client, "test").upload({
+      new SubredditEmoji(blocked.client, "test").upload({
         media: media(),
         name: "x",
       }),
-    ).rejects.toBeInstanceOf(ReadOnlyException);
+    ).rejects.toBeInstanceOf(ReadOnlyError);
     await expect(
-      createSubredditEmoji(blocked.client, "test").get("x").delete(),
-    ).rejects.toBeInstanceOf(ReadOnlyException);
+      new SubredditEmoji(blocked.client, "test").get("x").delete(),
+    ).rejects.toBeInstanceOf(ReadOnlyError);
 
     const { client, request } = setup();
     await expect(
-      createSubredditEmoji(client, "test").upload({
+      new SubredditEmoji(client, "test").upload({
         media: StylesheetImage.fromBytes(
           new Uint8Array(),
           "x.png",
@@ -261,7 +260,7 @@ describe("standalone emoji", () => {
     const controller = new AbortController();
     controller.abort(new Error("cancelled"));
     await expect(
-      createSubredditEmoji(client, "test").list(controller.signal),
+      new SubredditEmoji(client, "test").list(controller.signal),
     ).rejects.toThrow("cancelled");
     expect(request).not.toHaveBeenCalled();
   });
@@ -277,7 +276,7 @@ describe("standalone emoji", () => {
       const { client, request } = setup();
       request.mockResolvedValueOnce(response).mockResolvedValueOnce("");
       await expect(
-        createSubredditEmoji(client, "test").upload({
+        new SubredditEmoji(client, "test").upload({
           media: media(),
           name: "x",
         }),
@@ -287,9 +286,9 @@ describe("standalone emoji", () => {
     const failed = setup();
     failed.request
       .mockResolvedValueOnce(lease())
-      .mockRejectedValueOnce(new ResponseException({ status: 403 }));
+      .mockRejectedValueOnce(new ResponseError({ status: 403 }));
     await expect(
-      createSubredditEmoji(failed.client, "test").upload({
+      new SubredditEmoji(failed.client, "test").upload({
         media: media(),
         name: "x",
       }),
@@ -301,7 +300,7 @@ describe("standalone emoji", () => {
       .mockResolvedValueOnce(lease())
       .mockRejectedValueOnce(timeoutError);
     await expect(
-      createSubredditEmoji(timeout.client, "test").upload({
+      new SubredditEmoji(timeout.client, "test").upload({
         media: media(),
         name: "x",
       }),

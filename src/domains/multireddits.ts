@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import { isRawData } from "../models/base.js";
 import { Redditor } from "../models/entities.js";
 import {
@@ -57,7 +57,7 @@ const LIST_KEYS = new Set(["expandSubreddits", "signal"]);
 
 function authorized(client: MultiredditClient, operation: string): void {
   if (client.readOnly)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 function ownerName(value: string | Redditor): string {
@@ -76,10 +76,10 @@ function reference(
 
 /** Standalone helper ready to replace the facade's reference-only helper. */
 export class MultiredditsDomain {
-  readonly client: MultiredditClient;
+  readonly #client: MultiredditClient;
 
   constructor(client: MultiredditClient) {
-    this.client = client;
+    this.#client = client;
   }
 
   reference(options: MultiredditReferenceOptions): Multireddit;
@@ -89,10 +89,10 @@ export class MultiredditsDomain {
     second?: string,
   ): Multireddit {
     if (typeof first === "object" && !(first instanceof Redditor))
-      return reference(this.client, first);
+      return reference(this.#client, first);
     if (second === undefined)
       throw new TypeError("multireddit name is required");
-    return reference(this.client, { name: second, redditor: first });
+    return reference(this.#client, { name: second, redditor: first });
   }
 
   async load(options: MultiredditLoadOptions): Promise<Multireddit> {
@@ -105,7 +105,7 @@ export class MultiredditsDomain {
 
   async create(options: CreateMultiredditOptions): Promise<Multireddit> {
     assertExactOptions(options, CREATE_KEYS, "multireddit create");
-    authorized(this.client, "multireddit.create()");
+    authorized(this.#client, "multireddits.create()");
     options.signal?.throwIfAborted();
     const displayName = requiredMultiredditString(
       options.displayName,
@@ -122,30 +122,26 @@ export class MultiredditsDomain {
       ...(options.iconName === undefined ? {} : { iconName: options.iconName }),
       ...(options.keyColor === undefined ? {} : { keyColor: options.keyColor }),
     });
-    const response = await this.client.request({
+    const response = await this.#client.request({
       method: "POST",
       path: "/api/multi/",
       data: { model: JSON.stringify(model) },
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
-    return parseMultireddit(this.client, response);
+    return parseMultireddit(this.#client, response);
   }
 
   async mine(options: ListMultiredditsOptions = {}): Promise<Multireddit[]> {
     assertExactOptions(options, LIST_KEYS, "multireddit mine");
-    authorized(this.client, "multireddit.mine()");
+    authorized(this.#client, "multireddits.mine()");
     options.signal?.throwIfAborted();
-    const response = await this.client.request({
+    const response = await this.#client.request({
       method: "GET",
       path: "/api/multi/mine/",
       params: { expand_srs: options.expandSubreddits ?? false },
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
-    return parseMultiredditList(this.client, response);
-  }
-
-  listMine(options: ListMultiredditsOptions = {}): Promise<Multireddit[]> {
-    return this.mine(options);
+    return parseMultiredditList(this.#client, response);
   }
 
   async public(
@@ -154,70 +150,15 @@ export class MultiredditsDomain {
   ): Promise<Multireddit[]> {
     assertExactOptions(options, LIST_KEYS, "multireddit public");
     options.signal?.throwIfAborted();
-    const response = await this.client.request({
+    const response = await this.#client.request({
       method: "GET",
       path: `/api/multi/user/${encodeURIComponent(ownerName(redditor))}/`,
       params: { expand_srs: options.expandSubreddits ?? false },
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
-    return parseMultiredditList(this.client, response);
-  }
-
-  listPublic(
-    redditor: string | Redditor,
-    options: ListMultiredditsOptions = {},
-  ): Promise<Multireddit[]> {
-    return this.public(redditor, options);
+    return parseMultiredditList(this.#client, response);
   }
 }
-
-export interface MultiredditDomain {
-  (options: MultiredditReferenceOptions): Multireddit;
-  (redditor: string | Redditor, name: string): Multireddit;
-  readonly domain: MultiredditsDomain;
-  create(options: CreateMultiredditOptions): Promise<Multireddit>;
-  listMine(options?: ListMultiredditsOptions): Promise<Multireddit[]>;
-  listPublic(
-    redditor: string | Redditor,
-    options?: ListMultiredditsOptions,
-  ): Promise<Multireddit[]>;
-  load(options: MultiredditLoadOptions): Promise<Multireddit>;
-  mine(options?: ListMultiredditsOptions): Promise<Multireddit[]>;
-  public(
-    redditor: string | Redditor,
-    options?: ListMultiredditsOptions,
-  ): Promise<Multireddit[]>;
-  reference(options: MultiredditReferenceOptions): Multireddit;
-  reference(redditor: string | Redditor, name: string): Multireddit;
-}
-
-export function createMultiredditDomain(
-  client: MultiredditClient,
-): MultiredditDomain {
-  const domain = new MultiredditsDomain(client);
-  const helper = ((
-    first: MultiredditReferenceOptions | string | Redditor,
-    second?: string,
-  ): Multireddit => {
-    if (typeof first === "object" && !(first instanceof Redditor))
-      return domain.reference(first);
-    if (second === undefined)
-      throw new TypeError("multireddit name is required");
-    return domain.reference(first, second);
-  }) as MultiredditDomain;
-  return Object.assign(helper, {
-    create: domain.create.bind(domain),
-    domain,
-    listMine: domain.listMine.bind(domain),
-    listPublic: domain.listPublic.bind(domain),
-    load: domain.load.bind(domain),
-    mine: domain.mine.bind(domain),
-    public: domain.public.bind(domain),
-    reference: domain.reference.bind(domain),
-  });
-}
-
-export const createMultiredditHelper = createMultiredditDomain;
 
 export function isMultiredditResponse(value: unknown): boolean {
   return (

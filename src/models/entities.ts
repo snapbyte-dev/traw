@@ -17,10 +17,10 @@ import {
 } from "./mixins.js";
 import { InlineMedia, PostMedia, type InlineMediaType } from "./media.js";
 import {
-  MediaPostFailed,
-  ReadOnlyException,
-  RedditAPIException,
-  WebSocketException,
+  MediaPostFailedError,
+  ReadOnlyError,
+  RedditApiError,
+  WebSocketError,
   type RedditError,
 } from "../exceptions.js";
 import {
@@ -30,6 +30,9 @@ import {
 } from "../core/transport.js";
 import { Listing, type ListingOptions } from "../listing.js";
 import { Objector } from "../objector.js";
+import { MessageBase } from "./message-base.js";
+
+export { MessageBase } from "./message-base.js";
 
 export interface EntityContext {
   readonly comments: Map<string, Comment>;
@@ -563,7 +566,7 @@ function assertThingModeratorAccess(
     (thing.client as RedditClientLike & { readonly readOnly?: boolean })
       .readOnly
   ) {
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
   }
 }
 
@@ -658,33 +661,6 @@ function findModel<T>(
     }
   }
   return undefined;
-}
-
-export class Message extends RedditModel {
-  readonly kind = "t4";
-  readonly identityField = "id";
-  declare author: unknown;
-  declare body: unknown;
-  declare subject: unknown;
-
-  constructor(client: RedditClientLike, value: string | RawData) {
-    super(
-      client,
-      "id",
-      typeof value === "string" && value.startsWith("t4_")
-        ? value.slice(3)
-        : value,
-    );
-  }
-
-  get fullname(): string {
-    const name = this.get("name");
-    return typeof name === "string" ? name : `t4_${this.toString()}`;
-  }
-
-  protected fetchRequest(): Pick<RedditRequest, "params" | "path"> {
-    return { path: "/api/info", params: { id: this.fullname } };
-  }
 }
 
 export class Redditor extends RedditModel {
@@ -829,15 +805,13 @@ function receiveWebSocket(
     };
     const close = (): void => {
       fail(
-        new WebSocketException(
+        new WebSocketError(
           "WebSocket closed before media processing completed",
         ),
       );
     };
     const error = (): void => {
-      fail(
-        new WebSocketException("WebSocket media processing connection failed"),
-      );
+      fail(new WebSocketError("WebSocket media processing connection failed"));
     };
     const message = (event: unknown): void => {
       const data = eventData(event);
@@ -847,15 +821,13 @@ function receiveWebSocket(
     try {
       socket = factory(url);
     } catch {
-      reject(
-        new WebSocketException("Unable to establish WebSocket connection"),
-      );
+      reject(new WebSocketError("Unable to establish WebSocket connection"));
       return;
     }
     const timer = setTimeout(
       () =>
         fail(
-          new WebSocketException(
+          new WebSocketError(
             `WebSocket media processing timed out after ${timeoutMs}ms`,
           ),
         ),
@@ -882,19 +854,19 @@ async function parseWebSocketUpdate(value: unknown): Promise<string> {
     try {
       decoded = JSON.parse(decoded) as unknown;
     } catch {
-      throw new WebSocketException(
+      throw new WebSocketError(
         "WebSocket returned invalid media processing JSON",
       );
     }
   }
   if (!isRawData(decoded))
-    throw new WebSocketException(
+    throw new WebSocketError(
       "WebSocket returned an invalid media processing update",
     );
-  if (decoded["type"] === "failed") throw new MediaPostFailed();
+  if (decoded["type"] === "failed") throw new MediaPostFailedError();
   const payload = decoded["payload"];
   if (!isRawData(payload) || typeof payload["redirect"] !== "string")
-    throw new WebSocketException(
+    throw new WebSocketError(
       "WebSocket update is missing a media post redirect",
     );
   return payload["redirect"];
@@ -908,7 +880,7 @@ function submissionFromRedirect(
   try {
     url = new URL(redirect);
   } catch {
-    throw new WebSocketException(
+    throw new WebSocketError(
       "WebSocket returned an invalid media post redirect",
     );
   }
@@ -916,7 +888,7 @@ function submissionFromRedirect(
   const comments = parts.indexOf("comments");
   const id = comments >= 0 ? parts[comments + 1] : parts[0];
   if (id === undefined || id.length === 0)
-    throw new WebSocketException("WebSocket redirect has no submission ID");
+    throw new WebSocketError("WebSocket redirect has no submission ID");
   return new Submission(client, id);
 }
 
@@ -1030,7 +1002,7 @@ export class Subreddit extends RedditModel {
       if (isRawData(response) && isRawData(response["json"])) {
         const errors = response["json"]["errors"];
         if (Array.isArray(errors) && errors.length > 0)
-          throw new RedditAPIException(errors as readonly RedditError[]);
+          throw new RedditApiError(errors as readonly RedditError[]);
       }
       return response;
     }
@@ -1549,7 +1521,7 @@ function moreKey(data: RawData): string {
 
 export type RedditEntity =
   | Comment
-  | Message
+  | MessageBase
   | MoreComments
   | Redditor
   | Submission

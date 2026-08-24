@@ -5,7 +5,7 @@ import {
   type WebSocketFactory,
   type WebSocketLike,
 } from "../src/core/transport.js";
-import { MediaPostFailed, WebSocketException } from "../src/exceptions.js";
+import { MediaPostFailedError, WebSocketError } from "../src/exceptions.js";
 import { Submission, Subreddit } from "../src/models/entities.js";
 import {
   InlineGif,
@@ -293,7 +293,7 @@ describe("media post WebSocket completion", () => {
         kind: "video",
         video: PostMedia.fromBytes(new Uint8Array([1]), "clip.mp4"),
       }),
-    ).rejects.toBeInstanceOf(MediaPostFailed);
+    ).rejects.toBeInstanceOf(MediaPostFailedError);
 
     const malformed = socketFactory("not json");
     await expect(
@@ -307,7 +307,7 @@ describe("media post WebSocket completion", () => {
         image: PostMedia.fromBytes(new Uint8Array([1]), "image.png"),
         kind: "image",
       }),
-    ).rejects.toBeInstanceOf(WebSocketException);
+    ).rejects.toBeInstanceOf(WebSocketError);
   });
 
   it("accepts binary updates and rejects malformed redirects", async () => {
@@ -346,7 +346,7 @@ describe("media post WebSocket completion", () => {
           image: PostMedia.fromBytes(new Uint8Array([1]), "image.png"),
           kind: "image",
         }),
-      ).rejects.toBeInstanceOf(WebSocketException);
+      ).rejects.toBeInstanceOf(WebSocketError);
     }
   });
 
@@ -452,7 +452,7 @@ describe("media post WebSocket completion", () => {
     });
     await waitForFactory(broken.factory);
     broken.socket.emit("error");
-    await expect(socketError).rejects.toBeInstanceOf(WebSocketException);
+    await expect(socketError).rejects.toBeInstanceOf(WebSocketError);
 
     const disabled = socketFactory();
     const response = { json: { data: { websocket_url: "wss://disabled" } } };

@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import { Objector } from "../objector.js";
 import {
   RedditModel,
@@ -28,7 +28,7 @@ export function assertCollectionAuthorized(
   operation: string,
 ): void {
   if (client.readOnly === true) {
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
   }
 }
 

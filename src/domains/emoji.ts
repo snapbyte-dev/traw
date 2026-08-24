@@ -1,6 +1,7 @@
 import { replayableMultipart } from "../core/transport.js";
-import { ResponseException, ServerError } from "../exceptions.js";
+import { ResponseError, ServerError } from "../exceptions.js";
 import { BaseModel, isRawData, type RawData } from "../models/base.js";
+import { EmojiMedia } from "../models/media.js";
 import {
   assertModeratorAccess,
   requiredString,
@@ -9,7 +10,6 @@ import {
   type ModerationClientLike,
   type SubredditReference,
 } from "../models/moderation.js";
-import { EmojiMedia } from "../models/public.js";
 
 export interface EmojiPermissions {
   readonly modFlairOnly?: boolean;
@@ -56,7 +56,7 @@ function leaseData(value: unknown): UploadLease {
 }
 
 function uploadFailure(error: unknown): never {
-  if (!(error instanceof ResponseException)) throw error;
+  if (!(error instanceof ResponseError)) throw error;
   throw new ServerError(error.response);
 }
 
@@ -294,10 +294,6 @@ export class SubredditEmoji {
     return this.get(name);
   }
 
-  add(options: EmojiUploadOptions, signal?: AbortSignal): Promise<Emoji> {
-    return this.upload(options, signal);
-  }
-
   update(
     name: string,
     permissions: EmojiPermissions,
@@ -309,11 +305,4 @@ export class SubredditEmoji {
   delete(name: string, signal?: AbortSignal): Promise<void> {
     return this.get(name).delete(signal);
   }
-}
-
-export function createSubredditEmoji(
-  client: ModerationClientLike,
-  subreddit: SubredditReference,
-): SubredditEmoji {
-  return new SubredditEmoji(client, subreddit);
 }

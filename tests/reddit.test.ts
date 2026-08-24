@@ -8,7 +8,7 @@ import type {
   TransportResponse,
 } from "../src/core/transport.js";
 import { replayableText } from "../src/core/transport.js";
-import { RedditAPIException } from "../src/exceptions.js";
+import { RedditApiError } from "../src/exceptions.js";
 import {
   InfoListing,
   ListingRedditor,
@@ -48,10 +48,14 @@ function setup(values: unknown[] = []): {
     {},
   );
   return {
-    reddit: new Reddit(config, transport, {
-      headers: () => ({ "User-Agent": "traw:test" }),
-      invalidate: () => undefined,
-      readOnly: true,
+    reddit: new Reddit({
+      config,
+      transport,
+      headerProvider: {
+        headers: () => ({ "User-Agent": "traw:test" }),
+        invalidate: () => undefined,
+        readOnly: true,
+      },
     }),
     send,
   };
@@ -316,7 +320,7 @@ describe("Reddit", () => {
       userAgent: "traw:test",
     });
     await expect(reddit.post("/api/test")).rejects.toBeInstanceOf(
-      RedditAPIException,
+      RedditApiError,
     );
     expect(send).toHaveBeenCalledTimes(3);
     expect(sleep).toHaveBeenCalledTimes(3);
@@ -366,7 +370,7 @@ describe("Reddit", () => {
         userAgent: "traw:test",
       });
       await expect(reddit.post("/api/test")).rejects.toBeInstanceOf(
-        RedditAPIException,
+        RedditApiError,
       );
       expect(send).toHaveBeenCalledOnce();
       expect(sleep).not.toHaveBeenCalled();
@@ -381,7 +385,7 @@ describe("Reddit", () => {
     };
     const getSetup = setup([payload]);
     await expect(getSetup.reddit.get("/test")).rejects.toBeInstanceOf(
-      RedditAPIException,
+      RedditApiError,
     );
     expect(getSetup.send).toHaveBeenCalledOnce();
 
@@ -441,7 +445,7 @@ describe("Reddit", () => {
     );
   });
 
-  it("supports the options constructor and mutable read-only providers", () => {
+  it("supports credential options and mutable read-only providers", () => {
     let readOnly = true;
     const setReadOnly = vi.fn((value: boolean) => {
       readOnly = value;
@@ -478,13 +482,6 @@ describe("Reddit", () => {
   });
 
   it("validates constructor dependencies and username responses", async () => {
-    const config = new Config(
-      { clientId: "client", clientSecret: "secret", userAgent: "traw:test" },
-      {},
-    );
-    expect(() => new Reddit(config, undefined as never)).toThrow(
-      "transport is required",
-    );
     const controller = new AbortController();
     const { reddit, send } = setup([false, "yes"]);
     await expect(

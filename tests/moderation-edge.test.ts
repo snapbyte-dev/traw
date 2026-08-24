@@ -1,21 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { systemClock } from "../src/core/clock.js";
-import { Multireddit } from "../src/domains.js";
 import { InboxDomain } from "../src/domains/inbox.js";
 import { Listing, moderatorNotesPageAdapter } from "../src/listing.js";
-import { FlairTemplates, createSubredditFlair } from "../src/domains/flair.js";
-import { createSubredditModNotes } from "../src/domains/mod-notes.js";
+import { FlairTemplates, SubredditFlair } from "../src/domains/flair.js";
+import { SubredditModNotes } from "../src/domains/mod-notes.js";
 import {
+  SubredditModeration,
   SubredditQuarantine,
-  createSubredditModeration,
 } from "../src/domains/moderation.js";
 import {
   ContributorRelationship,
   createSubredditRelationships,
 } from "../src/domains/relationships.js";
-import { createSubredditRemovalReasons } from "../src/domains/removal-reasons.js";
-import { createSubredditRules } from "../src/domains/rules.js";
+import { SubredditRemovalReasons } from "../src/domains/removal-reasons.js";
+import { SubredditRules } from "../src/domains/rules.js";
 import { Subreddit } from "../src/models/entities.js";
 import {
   FlairTemplate,
@@ -27,6 +26,7 @@ import {
   responseArray,
   responseData,
 } from "../src/models/moderation.js";
+import { Multireddit } from "../src/models/multireddit.js";
 
 async function first<T>(source: AsyncIterable<T>): Promise<T | undefined> {
   for await (const item of source) return item;
@@ -77,7 +77,7 @@ describe("moderation edge contracts", () => {
 
   it("exposes every queue and moderation stream fetcher", async () => {
     const request = vi.fn().mockResolvedValue(emptyListing);
-    const moderation = createSubredditModeration({ request }, "test");
+    const moderation = new SubredditModeration({ request }, "test");
     await first(moderation.edited({ only: "comments" }));
     await first(moderation.reports());
     await first(moderation.spam());
@@ -124,7 +124,7 @@ describe("moderation edge contracts", () => {
       .mockResolvedValueOnce({ data: { title: "Test" } })
       .mockResolvedValueOnce(null)
       .mockResolvedValue(emptyListing);
-    const moderation = createSubredditModeration({ request }, "test");
+    const moderation = new SubredditModeration({ request }, "test");
     const signal = new AbortController().signal;
     await moderation.settings();
     await moderation.acceptInvite();
@@ -254,7 +254,7 @@ describe("flair edge contracts", () => {
       .fn()
       .mockResolvedValueOnce([{ id: "link", flair_text: "Link" }])
       .mockResolvedValue(null);
-    const flair = createSubredditFlair({ request }, "test");
+    const flair = new SubredditFlair({ request }, "test");
     const signal = new AbortController().signal;
     expect((await flair.linkTemplates.list(signal))[0]).toBeInstanceOf(
       FlairTemplate,
@@ -349,7 +349,7 @@ describe("flair edge contracts", () => {
 
   it("configures all flair settings and deletes users", async () => {
     const request = vi.fn().mockResolvedValue(null);
-    const flair = createSubredditFlair({ request }, "test");
+    const flair = new SubredditFlair({ request }, "test");
     const signal = new AbortController().signal;
     await flair.configure(
       {
@@ -380,7 +380,7 @@ describe("flair edge contracts", () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce([{ id: "one", flair_text: "One" }])
       .mockResolvedValue(null);
-    const flair = createSubredditFlair({ request }, "test");
+    const flair = new SubredditFlair({ request }, "test");
     const signal = new AbortController().signal;
     await flair.templates.add("Default", {}, signal);
     await flair.templates.update("one", { text: "One" }, signal);
@@ -434,13 +434,13 @@ describe("mod-note edge contracts", () => {
     await expect(first(listing)).rejects.toThrow("invalid listing child data");
   });
 
-  it("reads and validates legacy multireddit paths", () => {
-    const client = { request: vi.fn() };
+  it("reads and validates multireddit paths", () => {
+    const client = { readOnly: false, request: vi.fn() };
     expect(
       new Multireddit(client, { name: "multi", path: "/user/u/m/multi" }).path,
     ).toBe("/user/u/m/multi");
-    expect(() => new Multireddit(client, { name: "multi" }).path).toThrow(
-      "valid path",
+    expect(() => new Multireddit(client, { name: "multi" })).toThrow(
+      "invalid multireddit data",
     );
   });
 
@@ -453,7 +453,7 @@ describe("mod-note edge contracts", () => {
         mod_notes: [{ id: "one" }, { id: "two" }],
       })
       .mockResolvedValue(null);
-    const notes = createSubredditModNotes({ request }, "test");
+    const notes = new SubredditModNotes({ request }, "test");
     const signal = new AbortController().signal;
     await notes.delete({ deleteAll: true, redditor: "alice", signal });
     expect(request).toHaveBeenCalledTimes(3);
@@ -468,7 +468,7 @@ describe("mod-note edge contracts", () => {
       .fn()
       .mockResolvedValueOnce({ mod_notes: [null, { id: "one" }] })
       .mockResolvedValueOnce({ nope: [] });
-    const notes = createSubredditModNotes({ request }, "test");
+    const notes = new SubredditModNotes({ request }, "test");
     expect(await notes.bulk(["none", "alice"])).toMatchObject([
       null,
       { id: "one" },
@@ -477,7 +477,7 @@ describe("mod-note edge contracts", () => {
   });
 
   it("rejects non-object notes in otherwise valid bulk responses", async () => {
-    const notes = createSubredditModNotes(
+    const notes = new SubredditModNotes(
       { request: vi.fn().mockResolvedValue({ mod_notes: [42] }) },
       "test",
     );
@@ -489,7 +489,7 @@ describe("mod-note edge contracts", () => {
   it("creates notes for thing objects and forwards signals", async () => {
     const request = vi.fn().mockResolvedValue({ id: "note" });
     const signal = new AbortController().signal;
-    const notes = createSubredditModNotes({ request }, "test");
+    const notes = new SubredditModNotes({ request }, "test");
     await notes.create(
       { note: "note", redditor: "alice", thing: { fullname: "t1_comment" } },
       signal,
@@ -512,7 +512,7 @@ describe("mod-note edge contracts", () => {
       .fn()
       .mockResolvedValueOnce({ json: { data: { id: "wrapped" } } })
       .mockResolvedValueOnce(null);
-    const notes = createSubredditModNotes({ request }, "test");
+    const notes = new SubredditModNotes({ request }, "test");
     expect(
       String(await notes.create({ note: "note", redditor: "alice" })),
     ).toBe("wrapped");
@@ -530,7 +530,7 @@ describe("mod-note edge contracts", () => {
         mod_notes: [{ id: "one" }],
       })
       .mockResolvedValue(null);
-    const notes = createSubredditModNotes({ request }, "test");
+    const notes = new SubredditModNotes({ request }, "test");
     await first(notes.list({ redditor: "alice", requestLimit: 7 }));
     request.mockClear();
     request.mockResolvedValueOnce({
@@ -557,7 +557,7 @@ describe("rule edge contracts", () => {
           violation_reason: "reason",
         },
       ]);
-    const rules = createSubredditRules({ request }, "test");
+    const rules = new SubredditRules({ request }, "test");
     expect(rules.get("Old")).toBeInstanceOf(Rule);
     expect(await rules.list()).toHaveLength(1);
     const updated = await rules.update(
@@ -585,7 +585,7 @@ describe("rule edge contracts", () => {
         },
       ])
       .mockResolvedValueOnce([{ short_name: "Old", kind: "all" }]);
-    const rules = createSubredditRules({ request }, "test");
+    const rules = new SubredditRules({ request }, "test");
     await rules.update("Old", { description: "changed" });
     expect(request.mock.calls[1]?.[0].data).toMatchObject({
       description: "changed",
@@ -595,7 +595,7 @@ describe("rule edge contracts", () => {
     });
     await expect(rules.reorder(["same", "same"])).rejects.toThrow("duplicates");
 
-    const invalid = createSubredditRules(
+    const invalid = new SubredditRules(
       { request: vi.fn().mockResolvedValue({ rules: "bad" }) },
       "test",
     );
@@ -610,7 +610,7 @@ describe("rule edge contracts", () => {
       violation_reason: "violation",
     };
     const request = vi.fn().mockResolvedValue([responseRule]);
-    const rules = createSubredditRules({ request }, "test");
+    const rules = new SubredditRules({ request }, "test");
     const signal = new AbortController().signal;
     const rule = new Rule({ request }, "test", responseRule);
     await rules.list(signal);
@@ -629,21 +629,21 @@ describe("rule edge contracts", () => {
   });
 
   it("rejects missing and incomplete rules during partial updates", async () => {
-    const missing = createSubredditRules(
+    const missing = new SubredditRules(
       { request: vi.fn().mockResolvedValue([]) },
       "test",
     );
     await expect(missing.update("missing", {})).rejects.toThrow(
       "does not have rule",
     );
-    const incomplete = createSubredditRules(
+    const incomplete = new SubredditRules(
       { request: vi.fn().mockResolvedValue([{ short_name: "Old" }]) },
       "test",
     );
     await expect(incomplete.update("Old", {})).rejects.toThrow(
       "no valid description",
     );
-    const noRule = createSubredditRules(
+    const noRule = new SubredditRules(
       { request: vi.fn().mockResolvedValue([]) },
       "test",
     );
@@ -662,7 +662,7 @@ describe("removal-reason edge contracts", () => {
         order: ["one"],
       })
       .mockResolvedValue(null);
-    const reasons = createSubredditRemovalReasons({ request }, "test");
+    const reasons = new SubredditRemovalReasons({ request }, "test");
     expect(reasons.get("one")).toBeInstanceOf(RemovalReason);
     await reasons.update(
       "one",
@@ -676,17 +676,17 @@ describe("removal-reason edge contracts", () => {
   });
 
   it("rejects malformed lists, entries, and add IDs", async () => {
-    const malformed = createSubredditRemovalReasons(
+    const malformed = new SubredditRemovalReasons(
       { request: vi.fn().mockResolvedValue(null) },
       "test",
     );
     await expect(malformed.list()).rejects.toThrow("invalid removal reasons");
-    const entry = createSubredditRemovalReasons(
+    const entry = new SubredditRemovalReasons(
       { request: vi.fn().mockResolvedValue({ data: {}, order: [1] }) },
       "test",
     );
     await expect(entry.list()).rejects.toThrow("invalid removal reason data");
-    const add = createSubredditRemovalReasons(
+    const add = new SubredditRemovalReasons(
       { request: vi.fn().mockResolvedValue({ id: "bad" }) },
       "test",
     );
@@ -696,7 +696,7 @@ describe("removal-reason edge contracts", () => {
   });
 
   it("rejects incomplete fetched removal reasons", async () => {
-    const reasons = createSubredditRemovalReasons(
+    const reasons = new SubredditRemovalReasons(
       {
         request: vi.fn().mockResolvedValue({
           data: { one: { id: "one" } },
@@ -713,7 +713,7 @@ describe("removal-reason edge contracts", () => {
       .fn()
       .mockResolvedValueOnce("one")
       .mockResolvedValue(null);
-    const reasons = createSubredditRemovalReasons({ request }, "test");
+    const reasons = new SubredditRemovalReasons({ request }, "test");
     const signal = new AbortController().signal;
     await reasons.add({ message: "message", title: "title" }, signal);
     await reasons.delete("one", signal);
@@ -723,7 +723,7 @@ describe("removal-reason edge contracts", () => {
   });
 
   it("rejects partial updates for missing removal reasons", async () => {
-    const reasons = createSubredditRemovalReasons(
+    const reasons = new SubredditRemovalReasons(
       { request: vi.fn().mockResolvedValue({ data: {}, order: [] }) },
       "test",
     );
@@ -740,7 +740,7 @@ describe("removal-reason edge contracts", () => {
         order: ["one"],
       })
       .mockResolvedValue(null);
-    const reasons = createSubredditRemovalReasons({ request }, "test");
+    const reasons = new SubredditRemovalReasons({ request }, "test");
     await reasons.update("one", { message: "new" });
     expect(request.mock.calls[1]?.[0].data).toEqual({
       message: "new",

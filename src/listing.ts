@@ -169,5 +169,3 @@ export class Listing<T = unknown> implements AsyncIterable<T> {
     }
   }
 }
-
-export { Listing as ListingGenerator };

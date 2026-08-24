@@ -140,11 +140,4 @@ export class SubredditCollections {
   }
 }
 
-export function createSubredditCollections(
-  client: CollectionsClient,
-  subreddit: Subreddit,
-): SubredditCollections {
-  return new SubredditCollections(client, subreddit);
-}
-
 export type { CollectionsClient } from "../models/collection.js";

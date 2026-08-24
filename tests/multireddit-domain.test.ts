@@ -2,11 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   MultiredditsDomain,
-  createMultiredditDomain,
-  createMultiredditHelper,
   isMultiredditResponse,
 } from "../src/domains/multireddits.js";
-import { ReadOnlyException } from "../src/exceptions.js";
+import { ReadOnlyError } from "../src/exceptions.js";
 import { Listing } from "../src/listing.js";
 import type { RedditRequest } from "../src/models/base.js";
 import { Comment, Submission, Subreddit } from "../src/models/entities.js";
@@ -45,8 +43,8 @@ describe("standalone multireddit domain", () => {
   it("references, loads, objectifies, and avoids duplicate hydration", async () => {
     const api = client();
     api.request.mockResolvedValue(multi());
-    const helper = createMultiredditDomain(api);
-    const feed = helper({ redditor: "alice", name: "dev" });
+    const domain = new MultiredditsDomain(api);
+    const feed = domain.reference({ redditor: "alice", name: "dev" });
 
     expect(feed).toBeInstanceOf(Multireddit);
     expect(String(feed)).toBe("/user/alice/m/dev");
@@ -233,34 +231,30 @@ describe("standalone multireddit domain", () => {
 
     const readonly = new MultiredditsDomain(client(true));
     const readonlyFeed = readonly.reference("alice", "dev");
-    await expect(readonly.mine()).rejects.toBeInstanceOf(ReadOnlyException);
+    await expect(readonly.mine()).rejects.toBeInstanceOf(ReadOnlyError);
     await expect(
       readonly.create({ displayName: "Dev", subreddits: [] }),
-    ).rejects.toBeInstanceOf(ReadOnlyException);
+    ).rejects.toBeInstanceOf(ReadOnlyError);
     await expect(readonlyFeed.add("typescript")).rejects.toBeInstanceOf(
-      ReadOnlyException,
+      ReadOnlyError,
     );
-    await expect(readonlyFeed.delete()).rejects.toBeInstanceOf(
-      ReadOnlyException,
-    );
+    await expect(readonlyFeed.delete()).rejects.toBeInstanceOf(ReadOnlyError);
   });
 
-  it("exposes helper overloads, aliases, response detection, and encoded paths", async () => {
+  it("exposes reference overloads, response detection, and encoded paths", async () => {
     const api = client();
     api.request.mockResolvedValue([]);
-    const helper = createMultiredditHelper(api);
-    expect(helper.domain).toBeInstanceOf(MultiredditsDomain);
-    expect(helper("alice", "dev").path).toBe("/user/alice/m/dev");
-    expect(helper.reference({ redditor: "alice", name: "dev" }).name).toBe(
+    const domain = new MultiredditsDomain(api);
+    expect(domain.reference("alice", "dev").path).toBe("/user/alice/m/dev");
+    expect(domain.reference({ redditor: "alice", name: "dev" }).name).toBe(
       "dev",
     );
-    expect(() => helper("alice" as never)).toThrow("name is required");
-    expect(() => helper.domain.reference("alice" as never)).toThrow(
+    expect(() => domain.reference("alice" as never)).toThrow(
       "name is required",
     );
     expect(multiredditPath("a/b", "dev feed")).toBe("/user/a%2Fb/m/dev%20feed");
-    await expect(helper.listMine()).resolves.toEqual([]);
-    await expect(helper.listPublic("alice")).resolves.toEqual([]);
+    await expect(domain.mine()).resolves.toEqual([]);
+    await expect(domain.public("alice")).resolves.toEqual([]);
     expect(isMultiredditResponse({ kind: "LabeledMulti" })).toBe(true);
     expect(isMultiredditResponse({ name: "dev", path: "/user/a/m/dev" })).toBe(
       true,

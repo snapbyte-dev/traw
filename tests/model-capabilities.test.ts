@@ -9,7 +9,7 @@ import type {
   TransportRequest,
   TransportResponse,
 } from "../src/core/transport.js";
-import { RedditAPIException } from "../src/exceptions.js";
+import { RedditApiError } from "../src/exceptions.js";
 import { CommentForest } from "../src/models/comment-forest.js";
 import type { RedditClientLike, RedditRequest } from "../src/models/base.js";
 import {
@@ -238,7 +238,7 @@ describe("model request capabilities", () => {
     expect(sleep).toHaveBeenCalledWith(2_000, undefined);
 
     await expect(comment.report("invalid")).rejects.toBeInstanceOf(
-      RedditAPIException,
+      RedditApiError,
     );
     expect(send).toHaveBeenCalledTimes(4);
     expect(String(send.mock.calls[3]![0].body?.create())).toContain(

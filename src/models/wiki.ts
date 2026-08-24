@@ -177,13 +177,6 @@ export class WikiPageEditors {
     return this.#page.updateSettings(settings, signal);
   }
 
-  update(
-    settings: WikiSettingsUpdate,
-    signal?: AbortSignal,
-  ): Promise<WikiSettings> {
-    return this.updateSettings(settings, signal);
-  }
-
   private async updateEditor(
     action: "add" | "del",
     redditor: RedditorReference,
@@ -208,7 +201,6 @@ export class WikiPage extends BaseModel {
   readonly name: string;
   readonly revisionId: string | undefined;
   readonly editors: WikiPageEditors;
-  readonly mod: WikiPageEditors;
   #loaded: boolean;
 
   constructor(
@@ -231,7 +223,6 @@ export class WikiPage extends BaseModel {
     this.revisionId = revision === undefined ? undefined : revisionId(revision);
     this.#loaded = data !== undefined;
     this.editors = new WikiPageEditors(this);
-    this.mod = this.editors;
   }
 
   get isLoaded(): boolean {
@@ -242,16 +233,12 @@ export class WikiPage extends BaseModel {
     return `${subredditName(this.subreddit)}/${this.name}`;
   }
 
-  async read(signal?: AbortSignal): Promise<this> {
-    return this.hydrate(signal);
-  }
-
   async load(signal?: AbortSignal): Promise<this> {
     if (!this.#loaded) await this.hydrate(signal);
     return this;
   }
 
-  async hydrate(signal?: AbortSignal): Promise<this> {
+  private async hydrate(signal?: AbortSignal): Promise<this> {
     signal?.throwIfAborted();
     const response = await this.client.request({
       method: "GET",
@@ -300,10 +287,6 @@ export class WikiPage extends BaseModel {
 
   revision(id: string): WikiPage {
     return new WikiPage(this.client, this.subreddit, this.name, revisionId(id));
-  }
-
-  revisionAt(id: string): WikiPage {
-    return this.revision(id);
   }
 
   revisions(options: ListingOptions = {}): Listing<WikiRevision> {

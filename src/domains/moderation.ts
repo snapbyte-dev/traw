@@ -498,10 +498,3 @@ export class SubredditQuarantine {
     });
   }
 }
-
-export function createSubredditModeration(
-  client: ModerationClientLike,
-  subreddit: SubredditReference,
-): SubredditModeration {
-  return new SubredditModeration(client, subreddit);
-}

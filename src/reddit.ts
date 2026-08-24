@@ -10,41 +10,26 @@ import {
   type Transport,
   type WebSocketFactory,
 } from "./core/transport.js";
-import { ClientException, RedditAPIException } from "./exceptions.js";
-import { RedditorsDomain } from "./domains.js";
+import { ClientError, RedditApiError } from "./exceptions.js";
+import { RedditorsDomain } from "./domains/redditors.js";
 import { SubredditsDomain } from "./domains/subreddits.js";
-import {
-  createRedditModNotes,
-  type RedditModNotes,
-} from "./domains/mod-notes.js";
-import { AccountDomain, createAccountDomain } from "./domains/account.js";
-import {
-  createAnnouncementsDomain,
-  type AnnouncementsDomain,
-} from "./domains/announcements.js";
-import { createDraftsDomain, type DraftsDomain } from "./domains/drafts.js";
-import { createInboxDomain, type InboxDomain } from "./domains/inbox.js";
-import {
-  createLiveDomain,
-  type LiveCreateOptions,
-  type LiveDomain,
-} from "./domains/live.js";
-import {
-  createMultiredditDomain,
-  type MultiredditDomain,
-} from "./domains/multireddits.js";
+import { RedditModNotes } from "./domains/mod-notes.js";
+import { AccountDomain } from "./domains/account.js";
+import { AnnouncementsDomain } from "./domains/announcements.js";
+import { DraftsDomain } from "./domains/drafts.js";
+import { InboxDomain } from "./domains/inbox.js";
+import { LiveDomain } from "./domains/live.js";
+import { MultiredditsDomain } from "./domains/multireddits.js";
 import {
   Domain,
   Front,
   InfoListing,
   ListingRedditor,
-  createSubredditHelper,
+  ListingSubreddit,
   type InfoOptions,
-  type SubredditHelper,
 } from "./helpers.js";
 import { Comment, Submission } from "./models/entities.js";
 import type { DataValue, QueryValue, RedditRequest } from "./models/base.js";
-import type { LiveClient } from "./models/live.js";
 import { Objector } from "./objector.js";
 
 type Parameter = boolean | number | string;
@@ -99,33 +84,6 @@ export interface ThingOptions {
   readonly url?: string;
 }
 
-export interface RedditLiveDomain extends LiveDomain {
-  create(
-    title: string,
-    options?: LiveCreateOptions,
-    signal?: AbortSignal,
-  ): ReturnType<LiveDomain["create"]>;
-}
-
-function createRedditLiveDomain(client: LiveClient): RedditLiveDomain {
-  const domain = createLiveDomain(client);
-  return Object.assign((id: string) => domain(id), {
-    create(
-      title: string,
-      liveOptions: LiveCreateOptions = {},
-      signal?: AbortSignal,
-    ) {
-      return domain.create(title, {
-        ...liveOptions,
-        ...(signal === undefined ? {} : { signal }),
-      });
-    },
-    info: (ids: readonly string[], signal?: AbortSignal) =>
-      domain.info(ids, signal),
-    now: (signal?: AbortSignal) => domain.now(signal),
-  });
-}
-
 function idFromUrl(value: string, type: "comment" | "submission"): string {
   const url = new URL(value);
   const parts = url.pathname.split("/").filter(Boolean);
@@ -174,7 +132,7 @@ function requestParameters(
   return result;
 }
 
-/** Initial PRAW-compatible facade over the transport/session/model layers. */
+/** High-level facade over the transport, session, and model layers. */
 export class Reddit {
   static readonly #ratelimitPattern =
     /([0-9]{1,3}) (milliseconds?|seconds?|minutes?)/;
@@ -186,13 +144,11 @@ export class Reddit {
   readonly drafts: DraftsDomain;
   readonly front: Front;
   readonly inbox: InboxDomain;
-  readonly live: RedditLiveDomain;
-  readonly multireddit: MultiredditDomain;
+  readonly live: LiveDomain;
+  readonly multireddits: MultiredditsDomain;
   readonly notes: RedditModNotes;
   readonly redditors: RedditorsDomain;
-  readonly subreddit: SubredditHelper;
   readonly subreddits: SubredditsDomain;
-  readonly user: AccountDomain;
   readonly webSocketFactory: WebSocketFactory;
   readonly #headerProvider: RedditHeaderProvider;
   readonly #clock: Clock;
@@ -201,29 +157,7 @@ export class Reddit {
   readonly #transport: ClosableTransport;
   #closed = false;
 
-  constructor(options: RedditOptions);
-  constructor(
-    config: Config,
-    transport: ClosableTransport,
-    headerProvider?: RedditHeaderProvider,
-  );
-  constructor(
-    optionsOrConfig: RedditOptions | Config,
-    transport?: ClosableTransport,
-    headerProvider?: RedditHeaderProvider,
-  ) {
-    let options: RedditOptions;
-    if (optionsOrConfig instanceof Config) {
-      if (transport === undefined) throw new TypeError("transport is required");
-      options = {
-        config: optionsOrConfig,
-        transport,
-        ...(headerProvider === undefined ? {} : { headerProvider }),
-      };
-    } else {
-      options = optionsOrConfig;
-    }
-
+  constructor(options: RedditOptions) {
     this.config = options.config ?? new Config(options);
     this.webSocketFactory = options.webSocketFactory ?? nodeWebSocketFactory;
     this.#clock = options.clock ?? systemClock;
@@ -242,18 +176,16 @@ export class Reddit {
     });
     this.auth.bindRateLimiter(this.#session.rateLimiter);
     this.#objector = new Objector(this);
-    this.account = createAccountDomain(this);
-    this.announcements = createAnnouncementsDomain(this);
-    this.drafts = createDraftsDomain(this);
+    this.account = new AccountDomain(this);
+    this.announcements = new AnnouncementsDomain(this);
+    this.drafts = new DraftsDomain(this);
     this.front = new Front(this);
-    this.inbox = createInboxDomain(this);
-    this.live = createRedditLiveDomain(this);
-    this.multireddit = createMultiredditDomain(this);
-    this.notes = createRedditModNotes(this);
+    this.inbox = new InboxDomain(this);
+    this.live = new LiveDomain(this);
+    this.multireddits = new MultiredditsDomain(this);
+    this.notes = new RedditModNotes(this);
     this.redditors = new RedditorsDomain(this);
-    this.subreddit = createSubredditHelper(this);
     this.subreddits = new SubredditsDomain(this);
-    this.user = this.account;
   }
 
   get readOnly(): boolean {
@@ -263,7 +195,7 @@ export class Reddit {
   set readOnly(value: boolean) {
     if (value === this.readOnly) return;
     if (this.#headerProvider.setReadOnly === undefined) {
-      throw new ClientException(
+      throw new ClientError(
         "readOnly cannot be changed by the active header provider",
       );
     }
@@ -280,6 +212,10 @@ export class Reddit {
 
   redditor(name: string): ListingRedditor {
     return new ListingRedditor(this, name);
+  }
+
+  subreddit(name: string): ListingSubreddit {
+    return new ListingSubreddit(this, name);
   }
 
   domain(name: string): Domain {
@@ -330,7 +266,7 @@ export class Reddit {
       try {
         return await this.objectified(methodOptions("POST", path, options));
       } catch (error) {
-        if (!(error instanceof RedditAPIException)) throw error;
+        if (!(error instanceof RedditApiError)) throw error;
         const delaySeconds = this.rateLimitDelay(error);
         if (delaySeconds === undefined) throw error;
         await this.#clock.sleep(delaySeconds * 1_000, options.signal);
@@ -362,7 +298,7 @@ export class Reddit {
     return this.#objector.objectify(await this.request(options));
   }
 
-  private rateLimitDelay(exception: RedditAPIException): number | undefined {
+  private rateLimitDelay(exception: RedditApiError): number | undefined {
     for (const item of exception.items) {
       if (item.errorType !== "RATELIMIT" || item.message === null) continue;
       const match = Reddit.#ratelimitPattern.exec(item.message);

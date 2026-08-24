@@ -8,7 +8,6 @@ import {
   ListingRedditor,
   ListingSubreddit,
   RedditorContent,
-  createSubredditHelper,
 } from "../src/helpers.js";
 import { Comment, Submission, Subreddit } from "../src/models/entities.js";
 
@@ -79,7 +78,7 @@ describe("listing helpers", () => {
     expect(redditor.submissions.new()).toMatchObject({
       url: "/user/some%20user/submitted",
     });
-    expect(createSubredditHelper(api)("typescript")).toBeInstanceOf(
+    expect(new ListingSubreddit(api, "typescript")).toBeInstanceOf(
       ListingSubreddit,
     );
     expect(() => new Domain(api, " ")).toThrow("domain cannot be empty");

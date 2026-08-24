@@ -1,4 +1,4 @@
-import { InvalidFlairTemplateID } from "../exceptions.js";
+import { InvalidFlairTemplateIdError } from "../exceptions.js";
 import type { DataValue } from "../models/base.js";
 import {
   FlairTemplate,
@@ -138,7 +138,7 @@ export class FlairTemplates {
       const existing = (await this.list(signal)).find(
         (item) => String(item) === id,
       );
-      if (existing === undefined) throw new InvalidFlairTemplateID(id);
+      if (existing === undefined) throw new InvalidFlairTemplateIdError(id);
       const raw = existing.raw;
       data = {
         allowable_content: rawString(raw["allowable_content"], "all"),
@@ -305,11 +305,4 @@ export class SubredditFlair {
       ...(signal === undefined ? {} : { signal }),
     });
   }
-}
-
-export function createSubredditFlair(
-  client: ModerationClientLike,
-  subreddit: SubredditReference,
-): SubredditFlair {
-  return new SubredditFlair(client, subreddit);
 }

@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import { Listing, type ListingOptions } from "../listing.js";
 import {
   BaseModel,
@@ -124,7 +124,7 @@ const UPDATE_KEYS = new Set([
 
 function assertAuthorized(client: MultiredditClient, operation: string): void {
   if (client.readOnly)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 export function requiredMultiredditString(value: string, name: string): string {

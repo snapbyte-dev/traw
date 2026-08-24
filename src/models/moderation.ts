@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import {
   BaseModel,
   isRawData,
@@ -6,7 +6,6 @@ import {
   type RedditClientLike,
 } from "./base.js";
 import { Subreddit } from "./entities.js";
-import { registerModelParsers } from "../objector.js";
 
 export interface ModerationClientLike extends RedditClientLike {
   readonly readOnly?: boolean;
@@ -21,7 +20,7 @@ export function assertModeratorAccess(
   operation: string,
 ): void {
   if (client.readOnly === true) {
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
   }
 }
 
@@ -130,8 +129,3 @@ export class RemovalReason extends IdentifiedModerationModel {
     this.subreddit = subreddit;
   }
 }
-
-registerModelParsers({
-  modaction: (client, data) => new ModAction(client, data),
-  mod_note: (client, data) => new ModNote(client, data),
-});

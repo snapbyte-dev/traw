@@ -8,13 +8,13 @@ import {
 import { CommentForest } from "../src/models/comment-forest.js";
 import {
   Comment,
-  Message,
   MoreComments,
   Redditor,
   Submission,
   Subreddit,
 } from "../src/models/entities.js";
 import { Media, PostMedia } from "../src/models/media.js";
+import { Message } from "../src/models/messages.js";
 
 function mockClient(response: unknown = null): {
   client: RedditClientLike;
@@ -103,13 +103,11 @@ describe("base model edge cases", () => {
     );
   });
 
-  it("normalizes ids and derives fullnames", async () => {
-    const { client, request } = mockClient({
-      data: { id: "abc", name: "t4_abc" },
-    });
+  it("normalizes ids and derives fullnames", () => {
+    const { client } = mockClient();
     const comment = new Comment(client, "t1_ABC");
     const submission = new Submission(client, { id: "post", name: "custom" });
-    const message = new Message(client, "t4_abc");
+    const message = new Message({ ...client, readOnly: false }, "t4_abc");
     const redditor = new Redditor(client, { id: "u", name: "User" });
     const subredditByName = new Subreddit(client, {
       display_name: "one",
@@ -129,13 +127,6 @@ describe("base model edge cases", () => {
     expect(subredditByName.fullname).toBe("t5_named");
     expect(subredditById.fullname).toBe("t5_id");
     expect(new Subreddit(client, "empty").fullname).toBeUndefined();
-
-    await message.refresh();
-    expect(request).toHaveBeenCalledWith({
-      method: "GET",
-      path: "/api/info",
-      params: { id: "t4_abc" },
-    });
   });
 });
 

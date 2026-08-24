@@ -57,18 +57,18 @@ function setupClient(values: unknown[]): {
     async () => response(values.shift()),
   );
   return {
-    reddit: new Reddit(
-      new Config(
+    reddit: new Reddit({
+      config: new Config(
         { clientId: "client", clientSecret: "secret", userAgent: "traw:test" },
         {},
       ),
-      { send },
-      {
+      transport: { send },
+      headerProvider: {
         headers: () => ({ "User-Agent": "traw:test" }),
         invalidate: () => undefined,
         readOnly: false,
       },
-    ),
+    }),
     send,
   };
 }
@@ -98,11 +98,10 @@ describe("public standalone domain integration", () => {
     ]);
 
     expect(reddit.account).toBeInstanceOf(AccountDomain);
-    expect(reddit.user).toBe(reddit.account);
     expect(reddit.inbox).toBeInstanceOf(InboxDomain);
     await expect(reddit.account.me()).resolves.toMatchObject({ name: "alice" });
     await expect(
-      first(reddit.announcements({ limit: 1 })),
+      first(reddit.announcements.list({ limit: 1 })),
     ).resolves.toBeInstanceOf(Announcement);
     await expect(reddit.drafts.list()).resolves.toEqual([expect.any(Draft)]);
     await expect(
@@ -174,11 +173,11 @@ describe("public standalone domain integration", () => {
     ]);
     const subreddit = reddit.subreddit("typescript");
 
-    await expect(subreddit.wiki.get("index").read()).resolves.toBeInstanceOf(
+    await expect(subreddit.wiki.get("index").load()).resolves.toBeInstanceOf(
       WikiPage,
     );
     await expect(subreddit.emoji.list()).resolves.toEqual([expect.any(Emoji)]);
-    await expect(subreddit.stylesheet.read()).resolves.toBeInstanceOf(
+    await expect(subreddit.stylesheet.get()).resolves.toBeInstanceOf(
       Stylesheet,
     );
     await expect(subreddit.widgets.fetch()).resolves.toBe(subreddit.widgets);
@@ -219,25 +218,25 @@ describe("public standalone domain integration", () => {
         },
       ],
     ]);
-    const live = reddit.live("incident");
-    const multireddit = reddit.multireddit("alice", "dev");
+    const live = reddit.live.reference("incident");
+    const multireddit = reddit.multireddits.reference("alice", "dev");
     const signal = new AbortController().signal;
 
     await expect(live.load()).resolves.toBe(live);
     await expect(
-      reddit.live.create("Created", {}, signal),
+      reddit.live.create("Created", { signal }),
     ).resolves.toBeInstanceOf(LiveThread);
     await expect(first(reddit.live.info(["listed"]))).resolves.toBeInstanceOf(
       LiveThread,
     );
     await expect(reddit.live.now()).resolves.toBeInstanceOf(LiveThread);
     await expect(multireddit.load()).resolves.toBe(multireddit);
-    await expect(reddit.multireddit.mine()).resolves.toEqual([
+    await expect(reddit.multireddits.mine()).resolves.toEqual([
       expect.any(Multireddit),
     ]);
     expect(live).toBeInstanceOf(LiveThread);
     expect(multireddit).toBeInstanceOf(Multireddit);
-    expect(typeof reddit.multireddit.create).toBe("function");
+    expect(typeof reddit.multireddits.create).toBe("function");
     expect(
       send.mock.calls.map(([request]) => new URL(request.url).pathname),
     ).toEqual([

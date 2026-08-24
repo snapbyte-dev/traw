@@ -361,45 +361,25 @@ export class BaseModNotes {
   }
 }
 
-export interface RedditModNotes {
-  (options: ModNoteFilterOptions): AsyncIterable<ModNote | null>;
-  list(options: ModNoteFilterOptions): AsyncIterable<ModNote | null>;
+export class RedditModNotes extends BaseModNotes {
+  list(options: ModNoteFilterOptions): AsyncIterable<ModNote | null> {
+    assertModeratorAccess(this.client, "notes.list()");
+    const pairs = selectedPairs(options);
+    return options.allNotes === true
+      ? allModNotes(this.client, pairs, listingOptions(options))
+      : recentModNotes(this.client, pairs, options.signal);
+  }
+
   things(
     things: readonly ModNoteThing[],
     options?: ModNoteSelectionOptions,
-  ): AsyncIterable<ModNote | null>;
-  create(options: CreateModNoteOptions, signal?: AbortSignal): Promise<ModNote>;
-  delete(options: DeleteModNoteOptions): Promise<void>;
-}
-
-export function createRedditModNotes(
-  client: ModerationClientLike,
-): RedditModNotes {
-  const base = new BaseModNotes(client);
-  const list = (
-    options: ModNoteFilterOptions,
-  ): AsyncIterable<ModNote | null> => {
-    assertModeratorAccess(client, "notes()");
-    const pairs = selectedPairs(options);
-    return options.allNotes === true
-      ? allModNotes(client, pairs, listingOptions(options))
-      : recentModNotes(client, pairs, options.signal);
-  };
-  return Object.assign(list, {
-    list,
-    things(
-      things: readonly ModNoteThing[],
-      options: ModNoteSelectionOptions = {},
-    ) {
-      return list({
-        ...options,
-        allNotes: options.allNotes ?? things.length === 1,
-        things,
-      });
-    },
-    create: base.create.bind(base),
-    delete: base.delete.bind(base),
-  });
+  ): AsyncIterable<ModNote | null> {
+    return this.list({
+      ...options,
+      allNotes: options?.allNotes ?? things.length === 1,
+      things,
+    });
+  }
 }
 
 export class SubredditModNotes extends BaseModNotes {
@@ -486,18 +466,4 @@ export async function bulkModNotes(
   for await (const note of recentModNotes(client, pairs, signal))
     result.push(note);
   return result;
-}
-
-export function createSubredditModNotes(
-  client: ModerationClientLike,
-  subreddit: SubredditReference,
-): SubredditModNotes {
-  return new SubredditModNotes(client, subreddit);
-}
-
-export function createRedditorModNotes(
-  client: ModerationClientLike,
-  redditor: RedditorReference,
-): RedditorModNotes {
-  return new RedditorModNotes(client, redditor);
 }

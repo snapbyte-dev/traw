@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import { ListingSubreddit } from "../helpers.js";
 import { Listing, type ListingOptions } from "../listing.js";
 import type { DataValue, RedditClientLike } from "../models/base.js";
@@ -59,7 +59,7 @@ export class SubredditsDomain {
     signal?: AbortSignal,
   ): Promise<ListingSubreddit> {
     if (this.#client.readOnly === true) {
-      throw new ReadOnlyException(
+      throw new ReadOnlyError(
         "subreddits.create() does not work in read-only mode",
       );
     }

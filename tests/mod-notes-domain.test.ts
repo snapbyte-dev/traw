@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   RedditorModNotes,
+  RedditModNotes,
   SubredditModNotes,
-  createRedditModNotes,
 } from "../src/domains/mod-notes.js";
 import { Comment, Submission } from "../src/models/entities.js";
 import { ModNote } from "../src/models/moderation.js";
@@ -14,7 +14,7 @@ async function collect<T>(source: AsyncIterable<T>): Promise<T[]> {
   return result;
 }
 
-describe("PRAW moderator-note helper views", () => {
+describe("moderator-note helper views", () => {
   it("merges pairs, cartesian filters, and things into ordered bulk requests", async () => {
     const request = vi.fn().mockResolvedValue({
       mod_notes: [{ id: "pair" }, { id: "cross-one" }, null, { id: "thing" }],
@@ -25,10 +25,10 @@ describe("PRAW moderator-note helper views", () => {
       id: "post",
       subreddit: "gamma",
     });
-    const notes = createRedditModNotes(client);
+    const notes = new RedditModNotes(client);
 
     const result = await collect(
-      notes({
+      notes.list({
         pairs: [{ redditor: "alice", subreddit: "alpha" }],
         redditors: ["bob", "carol"],
         subreddits: ["beta"],
@@ -69,7 +69,7 @@ describe("PRAW moderator-note helper views", () => {
     const client = { request };
 
     await collect(
-      createRedditModNotes(client)({
+      new RedditModNotes(client).list({
         allNotes: true,
         pairs: [{ redditor: "alice", subreddit: "alpha" }],
         limit: 1,
@@ -115,7 +115,7 @@ describe("PRAW moderator-note helper views", () => {
       })
       .mockResolvedValueOnce({ id: "note" });
 
-    await createRedditModNotes({ request }).create(
+    await new RedditModNotes({ request }).create(
       { note: "Context", thing: "t1_comment" },
       signal,
     );
@@ -141,14 +141,14 @@ describe("PRAW moderator-note helper views", () => {
 
   it("strictly validates filters, scoped selections, auth, labels, and things", async () => {
     const request = vi.fn();
-    const notes = createRedditModNotes({ request });
-    expect(() => notes({})).toThrow("must be provided");
-    expect(() => notes({ redditors: ["alice"] })).toThrow("subreddits");
+    const notes = new RedditModNotes({ request });
+    expect(() => notes.list({})).toThrow("must be provided");
+    expect(() => notes.list({ redditors: ["alice"] })).toThrow("subreddits");
     expect(() =>
       new SubredditModNotes({ request }, "alpha").redditors([]),
     ).toThrow("At least one");
     expect(() =>
-      createRedditModNotes({ request, readOnly: true })({
+      new RedditModNotes({ request, readOnly: true }).list({
         pairs: [{ redditor: "alice", subreddit: "alpha" }],
       }),
     ).toThrow("read-only");
@@ -161,7 +161,7 @@ describe("PRAW moderator-note helper views", () => {
       }),
     ).rejects.toThrow("Invalid mod note label");
     expect(() =>
-      notes({ things: [new Comment({ request }, "comment")] }),
+      notes.list({ things: [new Comment({ request }, "comment")] }),
     ).toThrow("author and subreddit");
   });
 });

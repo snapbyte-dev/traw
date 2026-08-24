@@ -5,7 +5,7 @@ import {
   SubredditQuarantine,
 } from "../src/domains/moderation.js";
 import { SubredditsDomain } from "../src/domains/subreddits.js";
-import { ReadOnlyException } from "../src/exceptions.js";
+import { ReadOnlyError } from "../src/exceptions.js";
 import { ListingSubreddit } from "../src/helpers.js";
 import { Subreddit } from "../src/models/entities.js";
 
@@ -49,9 +49,7 @@ describe("subreddit administration", () => {
   it("validates creation and rejects read-only or aborted calls before I/O", async () => {
     const request = vi.fn();
     const readOnly = new SubredditsDomain({ readOnly: true, request });
-    await expect(readOnly.create("test")).rejects.toBeInstanceOf(
-      ReadOnlyException,
-    );
+    await expect(readOnly.create("test")).rejects.toBeInstanceOf(ReadOnlyError);
 
     const subreddits = new SubredditsDomain({ request });
     await expect(

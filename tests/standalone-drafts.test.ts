@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   Draft,
-  createDraftsDomain,
+  DraftsDomain,
   type DraftsClient,
 } from "../src/domains/drafts.js";
 import type { RedditRequest } from "../src/models/base.js";
@@ -37,7 +37,7 @@ describe("standalone drafts", () => {
       .mockResolvedValueOnce(response)
       .mockResolvedValueOnce({ json: { data: { id: "created" } } })
       .mockResolvedValueOnce(response);
-    const drafts = createDraftsDomain(client);
+    const drafts = new DraftsDomain(client);
 
     const [listed] = await drafts.list();
     expect(listed).toBeInstanceOf(Draft);
@@ -49,7 +49,7 @@ describe("standalone drafts", () => {
       title: "New",
     });
     expect(String(created)).toBe("created");
-    const lazy = drafts("draft-one");
+    const lazy = drafts.reference("draft-one");
     await lazy.load();
     expect(lazy.title).toBe("Title");
 
@@ -143,7 +143,7 @@ describe("standalone drafts", () => {
     const { client, request } = setup();
     request.mockResolvedValue({ id: "created" });
     const subreddit = new Subreddit(client, "u_owner");
-    await createDraftsDomain(client).create({
+    await new DraftsDomain(client).create({
       subreddit,
       url: "https://example.com",
     });
@@ -156,10 +156,10 @@ describe("standalone drafts", () => {
     });
 
     await expect(
-      createDraftsDomain(client).create({ selftext: "a", url: "b" }),
+      new DraftsDomain(client).create({ selftext: "a", url: "b" }),
     ).rejects.toThrow("Exactly one");
     await expect(
-      createDraftsDomain(client).create({ flairText: "editable" }),
+      new DraftsDomain(client).create({ flairText: "editable" }),
     ).rejects.toThrow("flairId is required");
     await expect(new Draft(client, "draft").submit()).rejects.toThrow(
       "invalid drafts data",
@@ -168,8 +168,10 @@ describe("standalone drafts", () => {
 
   it("enforces authorization and cancellation before requests", async () => {
     const blocked = setup(true);
-    expect(() => createDraftsDomain(blocked.client)("id")).toThrow("read-only");
-    await expect(createDraftsDomain(blocked.client).list()).rejects.toThrow(
+    expect(() => new DraftsDomain(blocked.client).reference("id")).toThrow(
+      "read-only",
+    );
+    await expect(new DraftsDomain(blocked.client).list()).rejects.toThrow(
       "read-only",
     );
     await expect(new Draft(blocked.client, "id").delete()).rejects.toThrow(
@@ -180,7 +182,7 @@ describe("standalone drafts", () => {
     const controller = new AbortController();
     controller.abort(new Error("stopped"));
     await expect(
-      createDraftsDomain(client).create({}, controller.signal),
+      new DraftsDomain(client).create({}, controller.signal),
     ).rejects.toThrow("stopped");
     expect(request).not.toHaveBeenCalled();
     expect(() => new Draft(client, " ")).toThrow("draft ID cannot be empty");
@@ -195,9 +197,9 @@ describe("standalone drafts", () => {
         },
       })
       .mockResolvedValueOnce({ id: "complete" });
-    const [link] = await createDraftsDomain(client)();
+    const [link] = await new DraftsDomain(client).list();
     expect(link?.url).toBe("https://example.com");
-    await createDraftsDomain(client).create({
+    await new DraftsDomain(client).create({
       flairId: "flair",
       flairText: "text",
       isPublicLink: true,
@@ -222,14 +224,14 @@ describe("standalone drafts", () => {
     request
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: "missing-kind" });
-    await expect(createDraftsDomain(client).list()).rejects.toThrow(
+    await expect(new DraftsDomain(client).list()).rejects.toThrow(
       "invalid drafts data",
     );
-    await expect(createDraftsDomain(client).create({})).resolves.toBeInstanceOf(
+    await expect(new DraftsDomain(client).create({})).resolves.toBeInstanceOf(
       Draft,
     );
     request.mockResolvedValue({ nope: true });
-    await expect(createDraftsDomain(client).create({})).rejects.toThrow(
+    await expect(new DraftsDomain(client).create({})).rejects.toThrow(
       "invalid draft data",
     );
   });

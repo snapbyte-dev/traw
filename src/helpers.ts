@@ -500,14 +500,6 @@ function findObjectified<T>(
   return undefined;
 }
 
-export type SubredditHelper = (name: string) => ListingSubreddit;
-
-export function createSubredditHelper(
-  client: RedditClientLike,
-): SubredditHelper {
-  return (name: string) => new ListingSubreddit(client, name);
-}
-
 export interface InfoOptions {
   readonly fullnames?: Iterable<string>;
   readonly subreddits?: Iterable<string | Subreddit>;

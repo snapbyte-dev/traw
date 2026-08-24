@@ -183,5 +183,3 @@ export async function* streamGenerator<T>(
     }
   }
 }
-
-export { streamGenerator as pollingStream };

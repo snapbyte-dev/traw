@@ -2,12 +2,12 @@ import { Buffer } from "node:buffer";
 
 import { Config } from "../config.js";
 import {
-  BadJSON,
-  InvalidImplicitAuth,
-  InvalidInvocation,
-  OAuthException,
-  RequestException,
-  ResponseException,
+  BadJsonError,
+  InvalidImplicitAuthError,
+  InvalidInvocationError,
+  OAuthError,
+  RequestError,
+  ResponseError,
 } from "../exceptions.js";
 import { systemClock, type Clock } from "./clock.js";
 import type { RateLimiter } from "./rate-limiter.js";
@@ -52,10 +52,10 @@ function parseObject(response: TransportResponse): Record<string, unknown> {
   try {
     value = response.json();
   } catch {
-    throw new BadJSON(response);
+    throw new BadJsonError(response);
   }
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new BadJSON(response);
+    throw new BadJsonError(response);
   }
   return value as Record<string, unknown>;
 }
@@ -74,7 +74,7 @@ function parseToken(response: TransportResponse): TokenPayload {
     typeof scope !== "string" ||
     (refreshToken !== undefined && typeof refreshToken !== "string")
   ) {
-    throw new BadJSON(response);
+    throw new BadJsonError(response);
   }
   return {
     accessToken,
@@ -120,16 +120,16 @@ export class Authenticator {
 
   authorizationUrl(options: AuthorizationUrlOptions): string {
     if (this.config.redirectUri === null)
-      throw new InvalidInvocation("redirect URI not provided");
+      throw new InvalidInvocationError("redirect URI not provided");
     const implicit = options.implicit ?? false;
     const duration = options.duration ?? "permanent";
     if (implicit && this.trusted) {
-      throw new InvalidInvocation(
+      throw new InvalidInvocationError(
         "Only installed applications can use the implicit grant flow.",
       );
     }
     if (implicit && duration !== "temporary") {
-      throw new InvalidInvocation(
+      throw new InvalidInvocationError(
         "The implicit grant flow only supports temporary access tokens.",
       );
     }
@@ -145,10 +145,6 @@ export class Authenticator {
     return url.toString();
   }
 
-  authorizeUrl(options: AuthorizationUrlOptions): string {
-    return this.authorizationUrl(options);
-  }
-
   async requestToken(
     data: Readonly<Record<string, string>>,
     signal?: AbortSignal,
@@ -159,7 +155,7 @@ export class Authenticator {
     if (typeof error === "string") {
       const description = value["error_description"];
       const secrets = this.#secrets(data);
-      throw new OAuthException(
+      throw new OAuthError(
         sanitizedResponse(response, secrets),
         redact(error, secrets),
         typeof description === "string" ? redact(description, secrets) : null,
@@ -211,16 +207,16 @@ export class Authenticator {
     } catch (error) {
       if (signal?.aborted === true) throw signal.reason ?? error;
       const original =
-        error instanceof RequestException ? error.originalError : error;
+        error instanceof RequestError ? error.originalError : error;
       const detail =
         original instanceof Error ? original.message : String(original);
-      throw new RequestException(new Error(redact(detail, secrets)), {
+      throw new RequestError(new Error(redact(detail, secrets)), {
         method: "POST",
         url,
       });
     }
     if (response.status !== 200)
-      throw new ResponseException(sanitizedResponse(response, secrets));
+      throw new ResponseError(sanitizedResponse(response, secrets));
     return response;
   }
 
@@ -375,7 +371,7 @@ export class Authorizer implements HeaderProvider {
   ): Promise<Readonly<Record<string, string>>> {
     if (!this.isValid()) await this.refresh(signal);
     if (this.accessToken === null)
-      throw new InvalidInvocation("no access token available");
+      throw new InvalidInvocationError("no access token available");
     return { Authorization: `bearer ${this.accessToken}` };
   }
 
@@ -385,7 +381,7 @@ export class Authorizer implements HeaderProvider {
 
   async authorize(code: string, signal?: AbortSignal): Promise<string | null> {
     if (this.authenticator.config.redirectUri === null) {
-      throw new InvalidInvocation("redirect URI not provided");
+      throw new InvalidInvocationError("redirect URI not provided");
     }
     const requestedAt = this.#clock.now();
     const payload = await this.authenticator.requestToken(
@@ -425,7 +421,7 @@ export class Authorizer implements HeaderProvider {
       return;
     }
     if (this.accessToken === null)
-      throw new InvalidInvocation("no token available to revoke");
+      throw new InvalidInvocationError("no token available to revoke");
     await this.authenticator.revokeToken(
       this.accessToken,
       "access_token",
@@ -440,7 +436,7 @@ export class Authorizer implements HeaderProvider {
       case "authorizationCode":
       case "refreshToken":
         if (this.refreshToken === null)
-          throw new InvalidInvocation("refresh token not provided");
+          throw new InvalidInvocationError("refresh token not provided");
         data = {
           grant_type: "refresh_token",
           refresh_token: this.refreshToken,
@@ -469,7 +465,7 @@ export class Authorizer implements HeaderProvider {
           data["scope"] = this.#grant.scopes.join(" ");
         break;
       case "implicit":
-        throw new InvalidInvocation(
+        throw new InvalidInvocationError(
           "implicit authorization cannot be refreshed",
         );
     }
@@ -506,12 +502,12 @@ export class Authorizer implements HeaderProvider {
         this.#grant.type === "script") &&
       !trusted
     ) {
-      throw new InvalidInvocation(
+      throw new InvalidInvocationError(
         "This authorization requires a trusted application.",
       );
     }
     if (this.#grant.type === "implicit" && trusted)
-      throw new InvalidImplicitAuth();
+      throw new InvalidImplicitAuthError();
   }
 }
 
@@ -591,7 +587,7 @@ export class Auth implements HeaderProvider {
     } else if (this.#authorizedAuthorizer !== null) {
       this.#activeAuthorizer = this.#authorizedAuthorizer;
     } else {
-      throw new InvalidInvocation(
+      throw new InvalidInvocationError(
         "readOnly cannot be unset because no user authorization is available",
       );
     }
@@ -629,7 +625,7 @@ export class Auth implements HeaderProvider {
     readonly expiresIn: number;
     readonly scope: string;
   }): void {
-    if (this.authenticator.trusted) throw new InvalidImplicitAuth();
+    if (this.authenticator.trusted) throw new InvalidImplicitAuthError();
     const authorizer = Authorizer.implicit({
       ...options,
       authenticator: this.authenticator,
@@ -641,26 +637,19 @@ export class Auth implements HeaderProvider {
 
   authorizationUrl(options: AuthorizationUrlOptions): string {
     const implicit = options.implicit ?? false;
-    if (implicit && this.authenticator.trusted) throw new InvalidImplicitAuth();
+    if (implicit && this.authenticator.trusted)
+      throw new InvalidImplicitAuthError();
     return this.authenticator.authorizationUrl({
       ...options,
       ...(implicit ? { duration: "temporary" } : {}),
     });
   }
 
-  url(options: AuthorizationUrlOptions): string {
-    return this.authorizationUrl(options);
-  }
-
   async grantedScopes(signal?: AbortSignal): Promise<ReadonlySet<string>> {
     await this.#activeAuthorizer.headers(signal);
     if (this.#activeAuthorizer.scopes === null)
-      throw new InvalidInvocation("no scopes available");
+      throw new InvalidInvocationError("no scopes available");
     return new Set(this.#activeAuthorizer.scopes);
-  }
-
-  scopes(signal?: AbortSignal): Promise<ReadonlySet<string>> {
-    return this.grantedScopes(signal);
   }
 
   revoke(

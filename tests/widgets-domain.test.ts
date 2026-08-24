@@ -4,7 +4,6 @@ import {
   SubredditWidgets,
   WidgetMedia,
   WidgetModeration,
-  createSubredditWidgets,
 } from "../src/domains/widgets.js";
 import type { ReplayableBody } from "../src/core/transport.js";
 import { BaseModel, type RedditRequest } from "../src/models/base.js";
@@ -498,7 +497,7 @@ describe("widget models", () => {
 
 describe("widget domain edge cases", () => {
   it("guards access before fetch and validates layout invariants", async () => {
-    const unfetched = createSubredditWidgets({ request: vi.fn() }, "test");
+    const unfetched = new SubredditWidgets({ request: vi.fn() }, "test");
     expect(() => unfetched.items).toThrow("not been fetched");
     expect(() => unfetched.sidebar).toThrow("not been fetched");
     expect(() => unfetched.topbar).toThrow("not been fetched");

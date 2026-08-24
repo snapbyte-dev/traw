@@ -667,10 +667,3 @@ export class SubredditWidgets {
     return this.layout[section].order.map((id) => this.item(id));
   }
 }
-
-export function createSubredditWidgets(
-  client: ModerationClientLike,
-  subreddit: SubredditReference,
-): SubredditWidgets {
-  return new SubredditWidgets(client, subreddit);
-}

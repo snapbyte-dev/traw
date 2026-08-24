@@ -10,12 +10,12 @@ import type {
   TransportResponse,
 } from "../../src/core/transport.js";
 import {
-  BadJSON,
-  InvalidImplicitAuth,
-  InvalidInvocation,
-  OAuthException,
-  RequestException,
-  ResponseException,
+  BadJsonError,
+  InvalidImplicitAuthError,
+  InvalidInvocationError,
+  OAuthError,
+  RequestError,
+  ResponseError,
 } from "../../src/exceptions.js";
 
 function response(value: unknown, status = 200): TransportResponse {
@@ -139,7 +139,7 @@ describe("Authenticator", () => {
   it("does not expose credentials or password forms through transport errors", async () => {
     const { authenticator, send } = setup();
     send.mockRejectedValueOnce(
-      new RequestException(new Error("offline"), {
+      new RequestError(new Error("offline"), {
         body: "password=super-secret",
         headers: { Authorization: "Basic secret" },
       }),
@@ -147,7 +147,7 @@ describe("Authenticator", () => {
     const error = await authenticator
       .requestToken({ password: "super-secret" })
       .catch((value: unknown) => value);
-    expect(error).toBeInstanceOf(RequestException);
+    expect(error).toBeInstanceOf(RequestError);
     expect(JSON.stringify(error)).not.toContain("super-secret");
     expect(JSON.stringify(error)).not.toContain("client-secret");
   });
@@ -167,7 +167,7 @@ describe("Authenticator", () => {
       })
       .catch((value: unknown) => value);
     expect(error).toEqual(
-      expect.objectContaining<Partial<OAuthException>>({
+      expect.objectContaining<Partial<OAuthError>>({
         description: "bad code [redacted]",
         error: "invalid_grant",
       }),
@@ -178,7 +178,7 @@ describe("Authenticator", () => {
   it("supports aliases and rejects invalid authorization URL states", () => {
     const authenticator = setup().authenticator;
     expect(
-      authenticator.authorizeUrl({
+      authenticator.authorizationUrl({
         duration: "temporary",
         scopes: [],
         state: "s",
@@ -226,11 +226,11 @@ describe("Authenticator", () => {
     const { authenticator, send } = setup();
     send.mockResolvedValueOnce(response(payload));
     await expect(authenticator.requestToken({})).rejects.toBeInstanceOf(
-      BadJSON,
+      BadJsonError,
     );
   });
 
-  it("converts JSON parsing failures to BadJSON", async () => {
+  it("converts JSON parsing failures to BadJsonError", async () => {
     const { authenticator, send } = setup();
     send.mockResolvedValueOnce({
       ...response({}),
@@ -239,7 +239,7 @@ describe("Authenticator", () => {
       },
     });
     await expect(authenticator.requestToken({})).rejects.toBeInstanceOf(
-      BadJSON,
+      BadJsonError,
     );
   });
 
@@ -255,11 +255,11 @@ describe("Authenticator", () => {
     const httpError = await authenticator
       .requestToken({ refresh_token: "refresh-value" })
       .catch((value: unknown) => value);
-    expect(httpError).toBeInstanceOf(ResponseException);
+    expect(httpError).toBeInstanceOf(ResponseError);
     expect(JSON.stringify(httpError)).not.toMatch(
       /client-secret|refresh-value/,
     );
-    const sanitized = (httpError as ResponseException).response;
+    const sanitized = (httpError as ResponseError).response;
     expect(sanitized.text?.()).toBe("[redacted] [redacted] [redacted]");
     expect(() => sanitized.json?.()).toThrow(SyntaxError);
 
@@ -269,7 +269,7 @@ describe("Authenticator", () => {
     const requestError = await authenticator
       .requestToken({ code: "code-value" })
       .catch((value: unknown) => value);
-    expect(requestError).toBeInstanceOf(RequestException);
+    expect(requestError).toBeInstanceOf(RequestError);
     expect(String(requestError)).not.toMatch(/code-value|client-secret/);
   });
 
@@ -401,7 +401,7 @@ describe("Authorizer", () => {
         expiresIn: 10,
         scope: "read",
       }),
-    ).toThrow(InvalidImplicitAuth);
+    ).toThrow(InvalidImplicitAuthError);
   });
 
   it("revokes refresh tokens by default and access tokens on request", async () => {
@@ -418,7 +418,7 @@ describe("Authorizer", () => {
     });
     await expect(
       authorizer.revoke({ onlyAccess: true }),
-    ).rejects.toBeInstanceOf(InvalidInvocation);
+    ).rejects.toBeInstanceOf(InvalidInvocationError);
   });
 
   it("includes optional scopes and custom device IDs for every grant", async () => {
@@ -533,7 +533,9 @@ describe("Auth", () => {
       transport: setupResult.transport,
     });
     expect(auth.readOnly).toBe(false);
-    await expect(auth.scopes()).resolves.toEqual(new Set(["read", "identity"]));
+    await expect(auth.grantedScopes()).resolves.toEqual(
+      new Set(["read", "identity"]),
+    );
     auth.readOnly = true;
     expect(auth.readOnly).toBe(true);
   });
@@ -610,10 +612,10 @@ describe("Auth", () => {
     });
     expect(() =>
       trusted.implicit({ accessToken: "a", expiresIn: 1, scope: "read" }),
-    ).toThrow(InvalidImplicitAuth);
+    ).toThrow(InvalidImplicitAuthError);
     expect(() =>
       trusted.authorizationUrl({ implicit: true, scopes: [], state: "s" }),
-    ).toThrow(InvalidImplicitAuth);
+    ).toThrow(InvalidImplicitAuthError);
   });
 
   it("forces temporary implicit URLs and exposes URL and scope aliases", async () => {
@@ -623,7 +625,7 @@ describe("Auth", () => {
       config: config({ trusted: false }),
       transport: result.transport,
     });
-    const url = auth.url({
+    const url = auth.authorizationUrl({
       duration: "permanent",
       implicit: true,
       scopes: ["read"],

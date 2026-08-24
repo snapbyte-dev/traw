@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { InboxDomain, createInboxDomain } from "../src/domains/inbox.js";
+import { InboxDomain } from "../src/domains/inbox.js";
 import type { RedditRequest } from "../src/models/base.js";
 import { Redditor, Subreddit } from "../src/models/entities.js";
 import {
@@ -211,7 +211,7 @@ describe("standalone inbox and messages", () => {
     await expect(new InboxDomain(client).message("missing")).rejects.toThrow(
       "did not contain message",
     );
-    await expect(createInboxDomain(client).markRead([" "])).rejects.toThrow(
+    await expect(new InboxDomain(client).markRead([" "])).rejects.toThrow(
       "fullname cannot be empty",
     );
   });
@@ -223,7 +223,7 @@ describe("standalone inbox and messages", () => {
       .mockResolvedValueOnce(thread());
     await expect(new Message(client, "root").reply("body")).resolves.toBeNull();
 
-    const stream = createInboxDomain(client).stream({ pauseAfter: -1 });
+    const stream = new InboxDomain(client).stream({ pauseAfter: -1 });
     const first = await stream.next();
     expect(first.value).toBeInstanceOf(Message);
     expect(request).toHaveBeenLastCalledWith({

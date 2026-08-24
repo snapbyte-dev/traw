@@ -1,4 +1,4 @@
-import { ReadOnlyException } from "../exceptions.js";
+import { ReadOnlyError } from "../exceptions.js";
 import {
   Listing,
   type ListingOptions,
@@ -14,7 +14,7 @@ import {
   type ModmailClient,
 } from "../models/modmail.js";
 import { Objector } from "../objector.js";
-import { pollingStream, type StreamOptions } from "../stream.js";
+import { streamGenerator, type StreamOptions } from "../stream.js";
 
 export type ModmailSort = "mod" | "recent" | "unread" | "user";
 export type ModmailState =
@@ -64,7 +64,7 @@ export interface LegacySendOptions {
 
 function authorized(client: ModmailClient, operation: string): void {
   if (client.readOnly)
-    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+    throw new ReadOnlyError(`${operation} does not work in read-only mode`);
 }
 
 function required(value: string, name: string): string {
@@ -155,16 +155,6 @@ export class ModmailDomain {
     return parseModmailConversation(this.#client, response, normalizedId);
   }
 
-  fetch(
-    conversationId: string,
-    options: {
-      readonly markRead?: boolean;
-      readonly signal?: AbortSignal;
-    } = {},
-  ): Promise<ModmailConversation> {
-    return this.conversation(conversationId, options);
-  }
-
   conversations(
     options: ModmailConversationOptions = {},
   ): Listing<ModmailConversation> {
@@ -234,10 +224,6 @@ export class ModmailDomain {
     });
   }
 
-  participatingSubreddits(signal?: AbortSignal): Promise<Subreddit[]> {
-    return this.subreddits(signal);
-  }
-
   async bulkRead(
     options: BulkReadModmailOptions = {},
   ): Promise<ModmailConversation[]> {
@@ -289,7 +275,7 @@ export class ModmailDomain {
       StreamOptions<ModmailConversation> = {},
   ): AsyncGenerator<ModmailConversation | null> {
     const streamOptions: StreamOptions<ModmailConversation> = options;
-    return pollingStream(
+    return streamGenerator(
       ({ limit, signal }) =>
         this.conversations({
           ...options,
@@ -347,7 +333,7 @@ export class LegacyModmailDomain {
     options: ListingOptions & StreamOptions<LegacyModmailMessage> = {},
   ): AsyncGenerator<LegacyModmailMessage | null> {
     const streamOptions: StreamOptions<LegacyModmailMessage> = options;
-    return pollingStream(
+    return streamGenerator(
       ({ before, limit, signal }) =>
         this.unread({
           ...options,
@@ -381,5 +367,3 @@ export class LegacyModmailDomain {
     );
   }
 }
-
-export { LegacyModmailDomain as SubredditModmailDomain };

@@ -9,6 +9,7 @@ import {
   type LegacyModmailDomain,
   type LiveDomain,
   type LiveThread,
+  TrawError,
   Media,
   type Message,
   type ModmailDomain,
@@ -38,6 +39,7 @@ import {
   type SubmitOptions,
   type UserSubreddit,
   PostMedia,
+  PreferencesDomain,
   type WebSocketFactory,
 } from "../../src/index.js";
 
@@ -48,6 +50,7 @@ const options: RedditOptions = {
 };
 
 const reddit = new Reddit(options);
+const trawError: Error = new TrawError("typed error");
 const comment: Comment = reddit.comment("abc");
 const submissions: AsyncIterable<Submission> = reddit.front.hot({ limit: 10 });
 const best: AsyncIterable<Submission> = reddit.front.best({ limit: 10 });
@@ -85,14 +88,16 @@ const removalMessageOptions: RemovalMessageOptions = {
   type: removalMessageType,
 };
 const account: AccountDomain = reddit.account;
-const user: AccountDomain = reddit.user;
-const currentAccount = await reddit.user.me();
+const preferencesDomain: PreferencesDomain = reddit.account.preferences;
+const isPreferencesDomain: boolean =
+  reddit.account.preferences instanceof PreferencesDomain;
+const currentAccount = await reddit.account.me();
 const profileSubreddit: UserSubreddit | null | undefined =
   currentAccount.subreddit;
 const inbox: InboxDomain = reddit.inbox;
 const messages: AsyncIterable<Message> = inbox.messages();
-const announcements: AsyncIterable<Announcement> = reddit.announcements();
-const draft: Draft = reddit.drafts("draft-id");
+const announcements: AsyncIterable<Announcement> = reddit.announcements.list();
+const draft: Draft = reddit.drafts.reference("draft-id");
 const subreddit = reddit.subreddit("typescript");
 const createSubredditOptions: CreateSubredditOptions = {
   linkType: "self",
@@ -119,7 +124,7 @@ const modNotes: SubredditModNotes = subreddit.modNotes;
 const subredditModerationNotes: SubredditModNotes = moderation.notes;
 const redditModNotes: RedditModNotes = reddit.notes;
 const redditorModNotes: RedditorModNotes = reddit.redditor("spez").notes;
-const recentNotes: AsyncIterable<ModNote | null> = reddit.notes({
+const recentNotes: AsyncIterable<ModNote | null> = reddit.notes.list({
   pairs: [{ redditor: "spez", subreddit: "typescript" }],
 });
 const allNotes: AsyncIterable<ModNote | null> = redditorModNotes.subreddits(
@@ -136,9 +141,11 @@ const stylesheet: SubredditStylesheet = subreddit.stylesheet;
 const widgets: SubredditWidgets = subreddit.widgets;
 const collections: SubredditCollections = subreddit.collections;
 const liveDomain: LiveDomain = reddit.live;
-const liveThread: LiveThread = liveDomain("thread");
-const multireddit: Multireddit = reddit.multireddit("alice", "dev");
-void reddit.live.create("thread", {}, new AbortController().signal);
+const liveThread: LiveThread = liveDomain.reference("thread");
+const multireddit: Multireddit = reddit.multireddits.reference("alice", "dev");
+void reddit.live.create("thread", {
+  signal: new AbortController().signal,
+});
 
 void comment;
 void submissions;
@@ -151,7 +158,8 @@ void inlineSubmit;
 void removalMessageOptions;
 void webSocketFactory;
 void account;
-void user;
+void preferencesDomain;
+void isPreferencesDomain;
 void profileSubreddit;
 void messages;
 void announcements;
@@ -180,6 +188,7 @@ void liveThread;
 void multireddit;
 
 void reddit.submission("post").mod.updateCrowdControlLevel(3);
+void trawError;
 void reddit.submission("post").mod.suggestedSort("qa");
 void reddit.submission("post").mod.suggestedSort({ sort: "new" });
 void reddit.submission("post").flair.select("template", { text: "custom" });
