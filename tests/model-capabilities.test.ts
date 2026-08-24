@@ -289,6 +289,236 @@ describe("model request capabilities", () => {
       }),
     ).toThrow("duration");
   });
+
+  it("toggles inbox replies and performs shared moderation actions", async () => {
+    const { client, request } = clientWith();
+    const comment = new Comment(client, { id: "c", parent_id: "t3_p" });
+    const signal = new AbortController().signal;
+
+    await comment.disableInboxReplies({ signal });
+    await comment.enableInboxReplies();
+    await comment.mod.approve();
+    await comment.mod.lock();
+    await comment.mod.unlock();
+    await comment.mod.distinguish({ sticky: true });
+    await comment.mod.undistinguish();
+    await comment.mod.ignoreReports();
+    await comment.mod.unignoreReports();
+    await comment.mod.remove({ modNote: "duplicate", spam: true });
+
+    expect(request.mock.calls.map(([call]) => call)).toEqual([
+      {
+        data: { id: "t1_c", state: false },
+        method: "POST",
+        path: "/api/sendreplies",
+        signal,
+      },
+      {
+        data: { id: "t1_c", state: true },
+        method: "POST",
+        path: "/api/sendreplies",
+      },
+      { data: { id: "t1_c" }, method: "POST", path: "/api/approve/" },
+      { data: { id: "t1_c" }, method: "POST", path: "/api/lock/" },
+      { data: { id: "t1_c" }, method: "POST", path: "/api/unlock/" },
+      {
+        data: { how: "yes", id: "t1_c", sticky: true },
+        method: "POST",
+        path: "/api/distinguish/",
+      },
+      {
+        data: { how: "no", id: "t1_c" },
+        method: "POST",
+        path: "/api/distinguish/",
+      },
+      { data: { id: "t1_c" }, method: "POST", path: "/api/ignore_reports/" },
+      { data: { id: "t1_c" }, method: "POST", path: "/api/unignore_reports/" },
+      {
+        data: { id: "t1_c", spam: true },
+        method: "POST",
+        path: "/api/remove/",
+      },
+      {
+        data: {
+          json: JSON.stringify({
+            item_ids: ["t1_c"],
+            mod_note: "duplicate",
+            reason_id: null,
+          }),
+        },
+        method: "POST",
+        path: "/api/v1/modactions/removal_reasons",
+      },
+    ]);
+    expect(() => comment.mod.distinguish({ how: "bad" as "yes" })).toThrow(
+      "Invalid distinguish",
+    );
+    await expect(comment.mod.remove({ modNote: "" })).rejects.toThrow(
+      "cannot be blank",
+    );
+  });
+
+  it("supports comment root and lazy parent discovery", () => {
+    const { client } = clientWith();
+    const root = new Comment(client, {
+      id: "root",
+      link_id: "t3_post",
+      parent_id: "t3_post",
+    });
+    const child = new Comment(client, {
+      id: "child",
+      link_id: "t3_post",
+      parent_id: "t1_parent",
+    });
+
+    expect(root.isRoot).toBe(true);
+    expect(root.parent()).toMatchObject({ fullname: "t3_post" });
+    expect(child.isRoot).toBe(false);
+    const parent = child.parent();
+    expect(parent).toMatchObject({ fullname: "t1_parent" });
+    expect(() => new Comment(client, "missing").isRoot).toThrow("parent_id");
+    expect(() => new Comment(client, "missing").parent()).toThrow("parent_id");
+  });
+
+  it("handles submission discovery, crosspost, flair, visit, and state moderation", async () => {
+    const { client, request } = clientWith();
+    request
+      .mockResolvedValueOnce({
+        kind: "t3",
+        data: { id: "cross", subreddit: "target", title: "Cross" },
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            flair_template_id: "template",
+            flair_text: "Choice",
+            flair_text_editable: true,
+          },
+        ],
+      });
+    const submission = new Submission(client, {
+      id: "post",
+      subreddit: "source",
+      title: "Original",
+    });
+    const signal = new AbortController().signal;
+
+    expect(submission.duplicates({ limit: 2 })).toMatchObject({
+      limit: 2,
+      url: "/duplicates/post/",
+    });
+    await expect(
+      submission.crosspost("target", {
+        flairId: "flair",
+        flairText: "custom",
+        nsfw: true,
+        sendReplies: false,
+        signal,
+        spoiler: true,
+      }),
+    ).resolves.toBeInstanceOf(Submission);
+    await submission.markVisited();
+    await expect(submission.flair.choices()).resolves.toEqual([
+      expect.objectContaining({
+        flairTemplateId: "template",
+        flairText: "Choice",
+        flairTextEditable: true,
+      }),
+    ]);
+    await submission.flair.select("template", { text: "edited" });
+    await submission.mod.nsfw();
+    await submission.mod.sfw();
+    await submission.mod.spoiler();
+    await submission.mod.unspoiler();
+    await submission.mod.contestMode({ state: false });
+    await submission.mod.sticky({ bottom: false });
+    await submission.mod.suggestedSort("qa");
+    await submission.mod.updateCrowdControlLevel(3);
+    await submission.mod.setOriginalContent();
+    await submission.mod.unsetOriginalContent();
+
+    expect(request.mock.calls[0]?.[0]).toEqual({
+      data: {
+        crosspost_fullname: "t3_post",
+        flair_id: "flair",
+        flair_text: "custom",
+        kind: "crosspost",
+        nsfw: true,
+        sendreplies: false,
+        spoiler: true,
+        sr: "target",
+        title: "Original",
+      },
+      method: "POST",
+      path: "/api/submit/",
+      signal,
+    });
+    expect(request.mock.calls.map(([call]) => call)).toEqual(
+      expect.arrayContaining([
+        {
+          data: { links: "t3_post" },
+          method: "POST",
+          path: "/api/store_visits",
+        },
+        {
+          data: { link: "t3_post" },
+          method: "POST",
+          path: "/r/source/api/flairselector/",
+        },
+        {
+          data: {
+            flair_template_id: "template",
+            link: "t3_post",
+            text: "edited",
+          },
+          method: "POST",
+          path: "/r/source/api/selectflair/",
+        },
+        {
+          data: { id: "t3_post", state: false },
+          method: "POST",
+          path: "/api/set_contest_mode/",
+        },
+        {
+          data: { id: "t3_post", num: 1, state: true },
+          method: "POST",
+          path: "/api/set_subreddit_sticky/",
+        },
+        {
+          data: { id: "t3_post", level: 3 },
+          method: "POST",
+          path: "/api/update_crowd_control_level",
+        },
+      ]),
+    );
+    await expect(submission.flair.select(" ")).rejects.toThrow(
+      "cannot be empty",
+    );
+    expect(() => submission.mod.suggestedSort("bad" as "top")).toThrow(
+      "Invalid suggested sort",
+    );
+    expect(() => submission.mod.updateCrowdControlLevel(4 as 3)).toThrow(
+      "from 0 to 3",
+    );
+  });
+
+  it("rejects malformed crosspost and flair responses", async () => {
+    const { client, request } = clientWith({});
+    const submission = new Submission(client, {
+      id: "post",
+      subreddit: "source",
+      title: "Title",
+    });
+
+    await expect(submission.crosspost("target")).rejects.toThrow(
+      "crosspost data",
+    );
+    request.mockResolvedValueOnce({ choices: [{}] });
+    await expect(submission.flair.choices()).rejects.toThrow("invalid choice");
+    request.mockResolvedValueOnce({});
+    await expect(submission.flair.choices()).rejects.toThrow("choices array");
+  });
 });
 
 describe("comment replacement", () => {

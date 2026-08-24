@@ -1,4 +1,8 @@
-import type { JsonValue, ReplayableBody } from "../core/transport.js";
+import type {
+  JsonValue,
+  ReplayableBody,
+  WebSocketFactory,
+} from "../core/transport.js";
 
 export type RawData = Record<string, unknown>;
 
@@ -30,6 +34,7 @@ export interface RedditQueryRequest {
 }
 
 export interface RedditClientLike {
+  readonly webSocketFactory?: WebSocketFactory;
   request(request: RedditRequest | RedditQueryRequest): Promise<unknown>;
   post?(
     path: string,
@@ -120,10 +125,21 @@ export class BaseModel {
   protected applyData(data: RawData): void {
     this.#raw = { ...this.#raw, ...data };
     for (const [field, value] of Object.entries(data)) {
+      let prototype = Object.getPrototypeOf(this) as object | null;
+      let accessorBacked = false;
+      while (prototype !== null) {
+        const descriptor = Object.getOwnPropertyDescriptor(prototype, field);
+        if (descriptor?.get !== undefined || descriptor?.set !== undefined) {
+          accessorBacked = true;
+          break;
+        }
+        prototype = Object.getPrototypeOf(prototype) as object | null;
+      }
       if (
         field.startsWith("#") ||
         field.startsWith("_") ||
-        RESERVED_FIELDS.has(field)
+        RESERVED_FIELDS.has(field) ||
+        accessorBacked
       ) {
         continue;
       }

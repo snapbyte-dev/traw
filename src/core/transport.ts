@@ -33,6 +33,24 @@ export interface Transport {
   isRetryableError?(error: unknown): boolean;
 }
 
+export interface WebSocketLike {
+  close(): void;
+  addEventListener(
+    type: "close" | "error" | "message",
+    listener: (event: unknown) => void,
+  ): void;
+  removeEventListener(
+    type: "close" | "error" | "message",
+    listener: (event: unknown) => void,
+  ): void;
+}
+
+export type WebSocketFactory = (url: string) => WebSocketLike;
+
+/** Create a WebSocket using the standards-compatible implementation in Node 22. */
+export const nodeWebSocketFactory: WebSocketFactory = (url) =>
+  new WebSocket(url);
+
 export type ResponseParser<T> = (response: TransportResponse) => T;
 
 export function jsonParser<T>(

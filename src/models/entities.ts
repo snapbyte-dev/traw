@@ -11,11 +11,25 @@ import {
 import { CommentForest, type CommentNode } from "./comment-forest.js";
 import {
   SubmissionMixin,
+  ThingModeration,
   UserContentMixin,
   type ActionOptions,
 } from "./mixins.js";
-import { PostMedia } from "./media.js";
-import { RedditAPIException, type RedditError } from "../exceptions.js";
+import { InlineMedia, PostMedia, type InlineMediaType } from "./media.js";
+import {
+  MediaPostFailed,
+  ReadOnlyException,
+  RedditAPIException,
+  WebSocketException,
+  type RedditError,
+} from "../exceptions.js";
+import {
+  nodeWebSocketFactory,
+  type WebSocketFactory,
+  type WebSocketLike,
+} from "../core/transport.js";
+import { Listing, type ListingOptions } from "../listing.js";
+import { Objector } from "../objector.js";
 
 export interface EntityContext {
   readonly comments: Map<string, Comment>;
@@ -44,6 +58,8 @@ export class Comment extends UserContentMixin {
   declare parent_id: unknown;
   declare replies: unknown;
   declare subreddit: unknown;
+  #context: EntityContext;
+  #moderation: CommentModeration | undefined;
 
   constructor(
     client: RedditClientLike,
@@ -51,19 +67,92 @@ export class Comment extends UserContentMixin {
     context?: EntityContext,
   ) {
     super(client, "t1", value);
+    this.#context = context ?? createEntityContext();
     if (typeof value !== "string") {
-      const entityContext = context ?? createEntityContext();
+      const entityContext = this.#context;
       entityContext.comments.set(this.fullname.toLowerCase(), this);
       this.applyObjectifiedData(value, entityContext);
     }
   }
 
   applyObjectifiedData(data: RawData, context: EntityContext): void {
+    this.#context = context;
     this.applyData(objectifyEntityFields(this.client, data, context));
+  }
+
+  get isRoot(): boolean {
+    const parentId = this.get("parent_id");
+    if (typeof parentId !== "string")
+      throw new TypeError("Comment has no valid parent_id");
+    return parentId.startsWith("t3_");
+  }
+
+  override get mod(): CommentModeration {
+    return (this.#moderation ??= new CommentModeration(this));
+  }
+
+  parent(): Comment | Submission {
+    const parentId = this.get("parent_id");
+    if (typeof parentId !== "string" || !/^t[13]_/.test(parentId))
+      throw new TypeError("Comment has no valid parent_id");
+    if (parentId.startsWith("t1_")) {
+      this.#context.submission ??= this.commentSubmission();
+      return (
+        this.#context.comments.get(parentId.toLowerCase()) ??
+        new Comment(this.client, parentId, this.#context)
+      );
+    }
+    const submission = this.commentSubmission(parentId);
+    this.#context.submission ??= submission;
+    return submission;
+  }
+
+  private commentSubmission(parentId?: string): Submission {
+    const attached = (this as Comment & { submission?: unknown }).submission;
+    if (attached instanceof Submission) return attached;
+    if (this.#context.submission !== undefined) return this.#context.submission;
+    const linkId = this.get("link_id");
+    const fullname =
+      typeof linkId === "string" && linkId.startsWith("t3_")
+        ? linkId
+        : parentId?.startsWith("t3_") === true
+          ? parentId
+          : undefined;
+    if (fullname === undefined)
+      throw new TypeError("Comment has no valid submission reference");
+    return objectifySubmission(
+      this.client,
+      { id: fullname.slice(3), name: fullname },
+      this.#context,
+    );
   }
 
   protected createReply(data: RawData): Comment {
     return new Comment(this.client, data);
+  }
+}
+
+export class CommentModeration extends ThingModeration<Comment> {
+  show(options: ActionOptions = {}): Promise<unknown> {
+    assertThingModeratorAccess(this.thing, "comment.mod.show()");
+    return postRequest(
+      this.thing.client,
+      "/api/show_comment",
+      { id: this.thing.fullname },
+      options.signal,
+    );
+  }
+
+  sendRemovalMessage(
+    message: string,
+    options: RemovalMessageOptions = {},
+  ): Promise<Comment | null> {
+    return sendRemovalMessage(
+      this.thing,
+      "/api/v1/modactions/removal_comment_message",
+      message,
+      options,
+    );
   }
 }
 
@@ -74,6 +163,8 @@ export class Submission extends SubmissionMixin {
   declare subreddit: unknown;
   declare title: unknown;
   comments: CommentForest | undefined;
+  #flair: SubmissionFlair | undefined;
+  #moderation: SubmissionModeration | undefined;
   #commentLimit = 2048;
   #commentSort = "confidence";
 
@@ -109,6 +200,14 @@ export class Submission extends SubmissionMixin {
     this.#commentSort = value;
   }
 
+  get flair(): SubmissionFlair {
+    return (this.#flair ??= new SubmissionFlair(this));
+  }
+
+  override get mod(): SubmissionModeration {
+    return (this.#moderation ??= new SubmissionModeration(this));
+  }
+
   override async refresh(options: LoadOptions = {}): Promise<this> {
     options.signal?.throwIfAborted();
     const response = await this.client.request({
@@ -132,6 +231,88 @@ export class Submission extends SubmissionMixin {
     this.applyData(objectifyEntityFields(this.client, data, context));
   }
 
+  duplicates(options: ListingOptions = {}): Listing<Submission> {
+    return new Listing<Submission>(
+      this.client,
+      `/duplicates/${encodeURIComponent(this.toString())}/`,
+      options,
+    );
+  }
+
+  override async edit(
+    body: string,
+    options: SubmissionEditOptions = {},
+  ): Promise<this> {
+    if (options.inlineMedia === undefined) return super.edit(body, options);
+    const richtextJson = await inlineRichText(
+      this.client,
+      body,
+      options.inlineMedia,
+      options.signal,
+    );
+    const response = await postRequest(
+      this.client,
+      "/api/editusertext",
+      {
+        richtext_json: richtextJson,
+        thing_id: this.fullname,
+        validate_on_submit: true,
+      },
+      options.signal,
+    );
+    return this.applyEditResponse(response);
+  }
+
+  async crosspost(
+    subreddit: string | Subreddit,
+    options: CrosspostOptions = {},
+  ): Promise<Submission> {
+    options.signal?.throwIfAborted();
+    let title = options.title;
+    if (title === undefined) {
+      const current = this.get("title");
+      if (typeof current !== "string") await this.load(options);
+      const loaded = this.get("title");
+      if (typeof loaded !== "string")
+        throw new TypeError("Submission has no title for crosspost");
+      title = loaded;
+    }
+    const response = await postRequest(
+      this.client,
+      "/api/submit/",
+      {
+        crosspost_fullname: this.fullname,
+        kind: "crosspost",
+        nsfw: options.nsfw ?? false,
+        sendreplies: options.sendReplies ?? true,
+        spoiler: options.spoiler ?? false,
+        sr: subreddit.toString(),
+        title,
+        ...(options.flairId === undefined ? {} : { flair_id: options.flairId }),
+        ...(options.flairText === undefined
+          ? {}
+          : { flair_text: options.flairText }),
+      },
+      options.signal,
+    );
+    const created = findModel(
+      new Objector(this.client).objectify(response),
+      Submission,
+    );
+    if (created === undefined)
+      throw new TypeError("Reddit response did not contain crosspost data");
+    return created;
+  }
+
+  markVisited(options: ActionOptions = {}): Promise<unknown> {
+    return postRequest(
+      this.client,
+      "/api/store_visits",
+      { links: this.fullname },
+      options.signal,
+    );
+  }
+
   private guardCommentOption(option: "commentLimit" | "commentSort"): void {
     if (this.isLoaded)
       throw new TypeError(
@@ -142,6 +323,341 @@ export class Submission extends SubmissionMixin {
   protected createReply(data: RawData): Comment {
     return new Comment(this.client, data);
   }
+}
+
+export interface CrosspostOptions extends ActionOptions {
+  readonly flairId?: string;
+  readonly flairText?: string;
+  readonly nsfw?: boolean;
+  readonly sendReplies?: boolean;
+  readonly spoiler?: boolean;
+  readonly title?: string;
+}
+
+export interface SubmissionEditOptions extends ActionOptions {
+  readonly inlineMedia?: Readonly<Record<string, InlineMedia>>;
+}
+
+export interface FlairChoice {
+  readonly flairCssClass?: string;
+  readonly flairTemplateId: string;
+  readonly flairText?: string;
+  readonly flairTextEditable?: boolean;
+  readonly [field: string]: unknown;
+}
+
+export interface FlairSelectOptions extends ActionOptions {
+  readonly text?: string;
+}
+
+export class SubmissionFlair {
+  readonly submission: Submission;
+
+  constructor(submission: Submission) {
+    this.submission = submission;
+  }
+
+  async choices(options: ActionOptions = {}): Promise<readonly FlairChoice[]> {
+    const subreddit = await submissionSubreddit(this.submission, options);
+    const response = await postRequest(
+      this.submission.client,
+      `/r/${encodeURIComponent(subreddit)}/api/flairselector/`,
+      { link: this.submission.fullname },
+      options.signal,
+    );
+    if (!isRawData(response) || !Array.isArray(response["choices"]))
+      throw new TypeError("Reddit flair response has no choices array");
+    return response["choices"].map(flairChoice);
+  }
+
+  async select(
+    flairTemplateId: string,
+    options: FlairSelectOptions = {},
+  ): Promise<unknown> {
+    if (flairTemplateId.trim().length === 0)
+      throw new TypeError("flairTemplateId cannot be empty");
+    const subreddit = await submissionSubreddit(this.submission, options);
+    return postRequest(
+      this.submission.client,
+      `/r/${encodeURIComponent(subreddit)}/api/selectflair/`,
+      {
+        flair_template_id: flairTemplateId,
+        link: this.submission.fullname,
+        ...(options.text === undefined ? {} : { text: options.text }),
+      },
+      options.signal,
+    );
+  }
+}
+
+export type SuggestedSort =
+  | "blank"
+  | "confidence"
+  | "controversial"
+  | "new"
+  | "old"
+  | "qa"
+  | "random"
+  | "top";
+
+export interface StateOptions extends ActionOptions {
+  readonly state?: boolean;
+}
+
+export interface StickyOptions extends StateOptions {
+  readonly bottom?: boolean;
+}
+
+export interface SuggestedSortOptions extends ActionOptions {
+  readonly sort?: SuggestedSort;
+}
+
+export type RemovalMessageType =
+  "private" | "private_exposed" | "public" | "public_as_subreddit";
+
+export interface RemovalMessageOptions extends ActionOptions {
+  readonly title?: string;
+  readonly type?: RemovalMessageType;
+}
+
+export class SubmissionModeration extends ThingModeration<Submission> {
+  sendRemovalMessage(
+    message: string,
+    options: RemovalMessageOptions = {},
+  ): Promise<Comment | null> {
+    return sendRemovalMessage(
+      this.thing,
+      "/api/v1/modactions/removal_link_message",
+      message,
+      options,
+    );
+  }
+
+  contestMode(options: StateOptions = {}): Promise<unknown> {
+    return this.stateAction("/api/set_contest_mode/", options);
+  }
+
+  nsfw(options: ActionOptions = {}): Promise<unknown> {
+    return this.action("/api/marknsfw/", options);
+  }
+
+  sfw(options: ActionOptions = {}): Promise<unknown> {
+    return this.action("/api/unmarknsfw/", options);
+  }
+
+  spoiler(options: ActionOptions = {}): Promise<unknown> {
+    return this.action("/api/spoiler/", options);
+  }
+
+  unspoiler(options: ActionOptions = {}): Promise<unknown> {
+    return this.action("/api/unspoiler/", options);
+  }
+
+  sticky(options: StickyOptions = {}): Promise<unknown> {
+    return postRequest(
+      this.thing.client,
+      "/api/set_subreddit_sticky/",
+      {
+        id: this.thing.fullname,
+        state: options.state ?? true,
+        ...(options.bottom === false ? { num: 1 } : {}),
+      },
+      options.signal,
+    );
+  }
+
+  suggestedSort(options?: SuggestedSortOptions): Promise<unknown>;
+  suggestedSort(
+    sort?: SuggestedSort,
+    options?: ActionOptions,
+  ): Promise<unknown>;
+  suggestedSort(
+    sortOrOptions: SuggestedSort | SuggestedSortOptions = "blank",
+    actionOptions: ActionOptions = {},
+  ): Promise<unknown> {
+    const sort =
+      typeof sortOrOptions === "string"
+        ? sortOrOptions
+        : (sortOrOptions.sort ?? "blank");
+    const options =
+      typeof sortOrOptions === "string" ? actionOptions : sortOrOptions;
+    if (
+      ![
+        "blank",
+        "confidence",
+        "controversial",
+        "new",
+        "old",
+        "qa",
+        "random",
+        "top",
+      ].includes(sort)
+    )
+      throw new RangeError(`Invalid suggested sort: ${sort}`);
+    return postRequest(
+      this.thing.client,
+      "/api/set_suggested_sort/",
+      { id: this.thing.fullname, sort },
+      options.signal,
+    );
+  }
+
+  updateCrowdControlLevel(
+    level: 0 | 1 | 2 | 3,
+    options: ActionOptions = {},
+  ): Promise<unknown> {
+    if (!Number.isInteger(level) || level < 0 || level > 3)
+      throw new RangeError(
+        "crowd control level must be an integer from 0 to 3",
+      );
+    return postRequest(
+      this.thing.client,
+      "/api/update_crowd_control_level",
+      { id: this.thing.fullname, level },
+      options.signal,
+    );
+  }
+
+  setOriginalContent(options: ActionOptions = {}): Promise<unknown> {
+    return this.originalContent(true, options);
+  }
+
+  unsetOriginalContent(options: ActionOptions = {}): Promise<unknown> {
+    return this.originalContent(false, options);
+  }
+
+  private stateAction(path: string, options: StateOptions): Promise<unknown> {
+    return postRequest(
+      this.thing.client,
+      path,
+      { id: this.thing.fullname, state: options.state ?? true },
+      options.signal,
+    );
+  }
+
+  private async originalContent(
+    state: boolean,
+    options: ActionOptions,
+  ): Promise<unknown> {
+    const subreddit = await submissionSubreddit(this.thing, options);
+    return postRequest(
+      this.thing.client,
+      "/api/set_original_content",
+      {
+        executed: false,
+        fullname: this.thing.fullname,
+        id: this.thing.toString(),
+        r: subreddit,
+        should_set_oc: state,
+      },
+      options.signal,
+    );
+  }
+}
+
+function assertThingModeratorAccess(
+  thing: UserContentMixin,
+  operation: string,
+): void {
+  if (
+    (thing.client as RedditClientLike & { readonly readOnly?: boolean })
+      .readOnly
+  ) {
+    throw new ReadOnlyException(`${operation} does not work in read-only mode`);
+  }
+}
+
+async function sendRemovalMessage(
+  thing: UserContentMixin,
+  path: string,
+  message: string,
+  options: RemovalMessageOptions,
+): Promise<Comment | null> {
+  assertThingModeratorAccess(thing, "mod.sendRemovalMessage()");
+  if (message.trim().length === 0)
+    throw new TypeError("removal message cannot be empty");
+  const type = options.type ?? "public";
+  if (
+    !["private", "private_exposed", "public", "public_as_subreddit"].includes(
+      type,
+    )
+  ) {
+    throw new RangeError(`Invalid removal message type: ${type}`);
+  }
+  const response = await postRequest(
+    thing.client,
+    path,
+    {
+      json: JSON.stringify({
+        item_id: [thing.fullname],
+        message,
+        title: options.title ?? "ignored",
+        type,
+      }),
+    },
+    options.signal,
+  );
+  if (response == null) return null;
+  const comment = findModel(
+    new Objector(thing.client).objectify(response),
+    Comment,
+  );
+  if (comment === undefined)
+    throw new TypeError(
+      "Reddit response did not contain removal message Comment data",
+    );
+  return comment;
+}
+
+async function submissionSubreddit(
+  submission: Submission,
+  options: ActionOptions,
+): Promise<string> {
+  let value = submission.get("subreddit");
+  if (!(value instanceof Subreddit) && typeof value !== "string") {
+    await submission.load(options);
+    value = submission.get("subreddit");
+  }
+  if (value instanceof Subreddit) return value.toString();
+  if (typeof value === "string" && value.length > 0) return value;
+  throw new TypeError("Submission has no subreddit");
+}
+
+function flairChoice(value: unknown): FlairChoice {
+  if (!isRawData(value) || typeof value["flair_template_id"] !== "string")
+    throw new TypeError("Reddit flair response contains an invalid choice");
+  return {
+    ...value,
+    flairTemplateId: value["flair_template_id"],
+    ...(typeof value["flair_css_class"] === "string"
+      ? { flairCssClass: value["flair_css_class"] }
+      : {}),
+    ...(typeof value["flair_text"] === "string"
+      ? { flairText: value["flair_text"] }
+      : {}),
+    ...(typeof value["flair_text_editable"] === "boolean"
+      ? { flairTextEditable: value["flair_text_editable"] }
+      : {}),
+  };
+}
+
+function findModel<T>(
+  value: unknown,
+  constructor: abstract new (...args: never[]) => T,
+): T | undefined {
+  if (value instanceof constructor) return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findModel(item, constructor);
+      if (found !== undefined) return found;
+    }
+  } else if (isRawData(value)) {
+    for (const item of Object.values(value)) {
+      const found = findModel(item, constructor);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
 }
 
 export class Message extends RedditModel {
@@ -176,13 +692,15 @@ export class Redditor extends RedditModel {
   readonly identityField = "name";
   declare comment_karma: unknown;
   declare link_karma: unknown;
+  declare subreddit: UserSubreddit | null | undefined;
 
   constructor(client: RedditClientLike, value: string | RawData) {
     super(client, "name", value);
+    if (typeof value !== "string") this.applyObjectifiedData(value);
   }
 
   applyObjectifiedData(data: RawData): void {
-    this.applyData(data);
+    this.applyData(objectifyRedditorFields(this.client, data));
   }
 
   get fullname(): string | undefined {
@@ -206,6 +724,217 @@ export class Redditor extends RedditModel {
   protected fetchRequest(): Pick<RedditRequest, "path"> {
     return { path: `/user/${encodeURIComponent(this.toString())}/about` };
   }
+
+  protected override applyLoadedData(data: RawData): void {
+    super.applyLoadedData(objectifyRedditorFields(this.client, data));
+  }
+}
+
+const INLINE_PLACEHOLDER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function expectedInlineMime(type: InlineMediaType, mimeType: string): boolean {
+  if (type === "gif") return mimeType === "image/gif";
+  if (type === "img")
+    return mimeType.startsWith("image/") && mimeType !== "image/gif";
+  return mimeType.startsWith("video/");
+}
+
+async function inlineRichText(
+  client: RedditClientLike,
+  body: string,
+  inlineMedia: Readonly<Record<string, InlineMedia>>,
+  signal?: AbortSignal,
+): Promise<string> {
+  const entries = Object.entries(inlineMedia);
+  if (entries.length === 0)
+    throw new TypeError("inlineMedia must contain at least one placeholder");
+  for (const [key, media] of entries) {
+    if (!INLINE_PLACEHOLDER.test(key))
+      throw new TypeError(`Invalid inline media placeholder key: ${key}`);
+    if (!body.includes(`{${key}}`))
+      throw new TypeError(
+        `Inline media placeholder {${key}} is missing from body`,
+      );
+    if (!(media instanceof InlineMedia))
+      throw new TypeError(
+        `Inline media placeholder {${key}} is not InlineMedia`,
+      );
+    if (!expectedInlineMime(media.type, media.media.mimeType))
+      throw new TypeError(
+        `Inline media placeholder {${key}} has the wrong media type`,
+      );
+  }
+
+  let rendered = body;
+  for (const [key, media] of entries) {
+    media.mediaId = await media.media.upload(client, {
+      uploadType: "selfpost",
+      ...(signal === undefined ? {} : { signal }),
+    });
+    rendered = rendered.replaceAll(`{${key}}`, media.toString());
+  }
+  const converted = await postRequest(
+    client,
+    "/api/convert_rte_body_format",
+    { markdown_text: rendered, output_mode: "rtjson" },
+    signal,
+  );
+  if (!isRawData(converted) || converted["output"] === undefined)
+    throw new TypeError(
+      "Reddit rich-text conversion response is missing output",
+    );
+  const serialized = JSON.stringify(converted["output"]);
+  return serialized;
+}
+
+function webSocketUrl(response: unknown): string | undefined {
+  if (!isRawData(response)) return undefined;
+  const json = response["json"];
+  const data = isRawData(json) ? json["data"] : response["data"];
+  const value = isRawData(data) ? data["websocket_url"] : undefined;
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function eventData(event: unknown): unknown {
+  return isRawData(event) && "data" in event ? event["data"] : event;
+}
+
+function receiveWebSocket(
+  url: string,
+  factory: WebSocketFactory,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  signal?.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    let socket: WebSocketLike;
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      socket.removeEventListener("close", close);
+      socket.removeEventListener("error", error);
+      socket.removeEventListener("message", message);
+      socket.close();
+    };
+    const fail = (value: Error): void => {
+      cleanup();
+      reject(value);
+    };
+    const abort = (): void => {
+      fail(
+        signal?.reason instanceof Error
+          ? signal.reason
+          : new DOMException("The operation was aborted", "AbortError"),
+      );
+    };
+    const close = (): void => {
+      fail(
+        new WebSocketException(
+          "WebSocket closed before media processing completed",
+        ),
+      );
+    };
+    const error = (): void => {
+      fail(
+        new WebSocketException("WebSocket media processing connection failed"),
+      );
+    };
+    const message = (event: unknown): void => {
+      const data = eventData(event);
+      cleanup();
+      resolve(data);
+    };
+    try {
+      socket = factory(url);
+    } catch {
+      reject(
+        new WebSocketException("Unable to establish WebSocket connection"),
+      );
+      return;
+    }
+    const timer = setTimeout(
+      () =>
+        fail(
+          new WebSocketException(
+            `WebSocket media processing timed out after ${timeoutMs}ms`,
+          ),
+        ),
+      timeoutMs,
+    );
+    socket.addEventListener("close", close);
+    socket.addEventListener("error", error);
+    socket.addEventListener("message", message);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+async function parseWebSocketUpdate(value: unknown): Promise<string> {
+  let decoded = value;
+  if (typeof Blob !== "undefined" && value instanceof Blob)
+    decoded = await value.text();
+  if (value instanceof ArrayBuffer)
+    decoded = new TextDecoder().decode(new Uint8Array(value));
+  if (ArrayBuffer.isView(value))
+    decoded = new TextDecoder().decode(
+      new Uint8Array(value.buffer, value.byteOffset, value.byteLength),
+    );
+  if (typeof decoded === "string") {
+    try {
+      decoded = JSON.parse(decoded) as unknown;
+    } catch {
+      throw new WebSocketException(
+        "WebSocket returned invalid media processing JSON",
+      );
+    }
+  }
+  if (!isRawData(decoded))
+    throw new WebSocketException(
+      "WebSocket returned an invalid media processing update",
+    );
+  if (decoded["type"] === "failed") throw new MediaPostFailed();
+  const payload = decoded["payload"];
+  if (!isRawData(payload) || typeof payload["redirect"] !== "string")
+    throw new WebSocketException(
+      "WebSocket update is missing a media post redirect",
+    );
+  return payload["redirect"];
+}
+
+function submissionFromRedirect(
+  client: RedditClientLike,
+  redirect: string,
+): Submission {
+  let url: URL;
+  try {
+    url = new URL(redirect);
+  } catch {
+    throw new WebSocketException(
+      "WebSocket returned an invalid media post redirect",
+    );
+  }
+  const parts = url.pathname.split("/").filter(Boolean);
+  const comments = parts.indexOf("comments");
+  const id = comments >= 0 ? parts[comments + 1] : parts[0];
+  if (id === undefined || id.length === 0)
+    throw new WebSocketException("WebSocket redirect has no submission ID");
+  return new Submission(client, id);
+}
+
+async function completeMediaSubmission(
+  client: RedditClientLike,
+  response: unknown,
+  options: MediaProcessingOptions,
+): Promise<unknown> {
+  if (options.withoutWebSockets === true) return response;
+  const url = webSocketUrl(response);
+  if (url === undefined) return response;
+  const update = await receiveWebSocket(
+    url,
+    options.webSocketFactory ?? client.webSocketFactory ?? nodeWebSocketFactory,
+    options.timeoutMs ?? 10_000,
+    options.signal,
+  );
+  return submissionFromRedirect(client, await parseWebSocketUpdate(update));
 }
 
 export class Subreddit extends RedditModel {
@@ -313,6 +1042,15 @@ export class Subreddit extends RedditModel {
         resubmit: options.resubmit ?? true,
       };
     if (options.kind === "text") data["text"] = options.selftext;
+    if (options.kind === "text" && options.inlineMedia !== undefined) {
+      delete data["text"];
+      data["richtext_json"] = await inlineRichText(
+        this.client,
+        options.selftext,
+        options.inlineMedia,
+        options.signal,
+      );
+    }
     if (options.kind === "link") {
       data["url"] = options.url;
       if (options.selftext) data["text"] = options.selftext;
@@ -336,7 +1074,15 @@ export class Subreddit extends RedditModel {
       if (options.selftext !== undefined) data["text"] = options.selftext;
       if (options.gif === true) data["kind"] = "videogif";
     }
-    return postRequest(this.client, "/api/submit", data, options.signal);
+    const response = await postRequest(
+      this.client,
+      "/api/submit",
+      data,
+      options.signal,
+    );
+    return options.kind === "image" || options.kind === "video"
+      ? completeMediaSubmission(this.client, response, options)
+      : response;
   }
 
   private subscriptionRequest(
@@ -358,6 +1104,26 @@ export class Subreddit extends RedditModel {
   protected fetchRequest(): Pick<RedditRequest, "path"> {
     return { path: `/r/${encodeURIComponent(this.toString())}/about` };
   }
+}
+
+/** A profile subreddit embedded in a Redditor response. */
+export class UserSubreddit extends Subreddit {}
+
+function objectifyRedditorFields(
+  client: RedditClientLike,
+  data: RawData,
+): RawData {
+  const subreddit = data["subreddit"];
+  if (subreddit === undefined || subreddit === null) return data;
+  if (subreddit instanceof UserSubreddit) return data;
+  if (
+    !isRawData(subreddit) ||
+    typeof subreddit["display_name"] !== "string" ||
+    subreddit["display_name"].length === 0
+  ) {
+    throw new TypeError("Reddit returned invalid user subreddit data");
+  }
+  return { ...data, subreddit: new UserSubreddit(client, subreddit) };
 }
 
 export class MoreComments extends BaseModel {
@@ -441,9 +1207,19 @@ interface CommonSubmitOptions {
   readonly spoiler?: boolean;
 }
 
+interface MediaProcessingOptions extends ActionOptions {
+  readonly timeoutMs?: number;
+  readonly webSocketFactory?: WebSocketFactory;
+  readonly withoutWebSockets?: boolean;
+}
+
 export type SubmitOptions = CommonSubmitOptions &
   (
-    | { readonly kind: "text"; readonly selftext: string }
+    | {
+        readonly inlineMedia?: Readonly<Record<string, InlineMedia>>;
+        readonly kind: "text";
+        readonly selftext: string;
+      }
     | {
         readonly kind: "link";
         readonly selftext?: string;
@@ -455,18 +1231,18 @@ export type SubmitOptions = CommonSubmitOptions &
         readonly options: readonly string[];
         readonly selftext?: string;
       }
-    | {
+    | (MediaProcessingOptions & {
         readonly image: PostMedia;
         readonly kind: "image";
         readonly selftext?: string;
-      }
-    | {
+      })
+    | (MediaProcessingOptions & {
         readonly gif?: boolean;
         readonly kind: "video";
         readonly selftext?: string;
         readonly thumbnail?: PostMedia;
         readonly video: PostMedia;
-      }
+      })
     | {
         readonly items: readonly GalleryItem[];
         readonly kind: "gallery";
@@ -481,6 +1257,12 @@ export interface GalleryItem {
 }
 
 function validateSubmitOptions(options: SubmitOptions): void {
+  if (
+    (options.kind === "image" || options.kind === "video") &&
+    options.timeoutMs !== undefined &&
+    (!Number.isFinite(options.timeoutMs) || options.timeoutMs < 0)
+  )
+    throw new RangeError("timeoutMs must be a non-negative finite number");
   if (options.kind === "poll") {
     if (
       !Number.isInteger(options.duration) ||
@@ -766,4 +1548,10 @@ function moreKey(data: RawData): string {
 }
 
 export type RedditEntity =
-  Comment | Message | MoreComments | Redditor | Submission | Subreddit;
+  | Comment
+  | Message
+  | MoreComments
+  | Redditor
+  | Submission
+  | Subreddit
+  | UserSubreddit;

@@ -20,6 +20,11 @@ export interface PostMediaUploadOptions {
   readonly uploadType?: "gallery" | "link" | "selfpost";
 }
 
+export interface InlineMediaOptions {
+  readonly caption?: string;
+  readonly media: PostMedia;
+}
+
 const MIME_TYPES: Readonly<Record<string, string>> = {
   ".gif": "image/gif",
   ".jpeg": "image/jpeg",
@@ -240,5 +245,61 @@ export class PostMedia extends Media {
     if (key === undefined)
       throw new TypeError("media lease response is missing key");
     return `${lease.url.replace(/\/$/, "")}/${key}`;
+  }
+}
+
+export type InlineMediaType = "gif" | "img" | "video";
+
+/** Media uploaded with a self-post lease and rendered as Reddit media Markdown. */
+export abstract class InlineMedia {
+  abstract readonly type: InlineMediaType;
+  readonly caption: string | undefined;
+  readonly media: PostMedia;
+  mediaId: string | null = null;
+
+  constructor(options: InlineMediaOptions) {
+    if (!(options.media instanceof PostMedia))
+      throw new TypeError("media must be a PostMedia instance");
+    this.caption = options.caption;
+    this.media = options.media;
+  }
+
+  toString(): string {
+    return `\n\n![${this.type}](${this.mediaId ?? ""} "${this.caption ?? ""}")\n\n`;
+  }
+}
+
+export class InlineGif extends InlineMedia {
+  readonly type = "gif";
+
+  constructor(options: InlineMediaOptions) {
+    super(options);
+    if (this.media.mimeType !== "image/gif")
+      throw new TypeError("InlineGif media must have an image/gif MIME type");
+  }
+}
+
+export class InlineImage extends InlineMedia {
+  readonly type = "img";
+
+  constructor(options: InlineMediaOptions) {
+    super(options);
+    if (
+      !this.media.mimeType.startsWith("image/") ||
+      this.media.mimeType === "image/gif"
+    )
+      throw new TypeError(
+        "InlineImage media must have a non-GIF image MIME type",
+      );
+  }
+}
+
+export class InlineVideo extends InlineMedia {
+  readonly type = "video";
+
+  constructor(options: InlineMediaOptions) {
+    super(options);
+    if (!this.media.mimeType.startsWith("video/"))
+      throw new TypeError("InlineVideo media must have a video MIME type");
   }
 }
