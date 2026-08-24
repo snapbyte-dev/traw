@@ -1,5 +1,7 @@
 # TRAW: TypeScript Reddit API Wrapper
 
+[![npm version](https://img.shields.io/npm/v/%40snapbyte-dev%2Ftraw.svg)](https://www.npmjs.com/package/@snapbyte-dev/traw)
+
 TRAW is an unofficial TypeScript implementation of Reddit API capabilities,
 using [PRAW 8.0.3](https://github.com/praw-dev/praw/tree/v8.0.3) as a pinned
 behavioral reference. The goal is equivalent useful outcomes where TypeScript
