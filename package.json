@@ -1,20 +1,47 @@
 {
-  "name": "traw",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@snapbyte-dev/traw",
+  "version": "1.0.0",
   "description": "Unofficial TypeScript port of PRAW",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/snapbyte-dev/traw.git"
+  },
+  "homepage": "https://github.com/snapbyte-dev/traw#readme",
+  "bugs": {
+    "url": "https://github.com/snapbyte-dev/traw/issues"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "engines": {
     "node": ">=22"
   },
   "packageManager": "pnpm@10.23.0",
   "scripts": {
+    "build": "pnpm clean && tsc --project tsconfig.build.json",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:types",
+    "clean": "node --eval \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "coverage": "vitest run --coverage",
     "example:top-posts": "tsx examples/typescript-top-posts.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings 0",
+    "prepack": "pnpm build",
     "test": "vitest run",
     "test:types": "tsc --project tsconfig.types.json",
     "test:watch": "vitest",

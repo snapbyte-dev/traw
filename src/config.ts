@@ -1,5 +1,7 @@
 import { ClientError, MissingRequiredAttributeError } from "./exceptions.js";
 
+type Environment = Readonly<Record<string, string | undefined>>;
+
 const defaults = {
   checkForAsync: true,
   checkForUpdates: true,
@@ -40,10 +42,7 @@ function envName(key: string): string {
   return `TRAW_${key.replace(/[A-Z]/g, (letter) => `_${letter}`).toUpperCase()}`;
 }
 
-function fromEnvironment(
-  env: NodeJS.ProcessEnv,
-  key: string,
-): string | undefined {
+function fromEnvironment(env: Environment, key: string): string | undefined {
   const value = env[envName(key)];
   return value === "" ? undefined : value;
 }
@@ -64,7 +63,7 @@ function parsePositiveNumber(value: string | number, name: string): number {
 
 function optionOrEnv<T>(
   options: ConfigOptions,
-  env: NodeJS.ProcessEnv,
+  env: Environment,
   key: keyof ConfigOptions,
   parse: (value: string, name: string) => T,
   fallback: T,
@@ -79,7 +78,7 @@ function optionOrEnv<T>(
 
 function optionalString(
   options: ConfigOptions,
-  env: NodeJS.ProcessEnv,
+  env: Environment,
   key: keyof ConfigOptions,
 ): string | null | undefined {
   const option = options[key];
@@ -135,10 +134,7 @@ export class Config {
   >;
   readonly #shortUrl: string | null;
 
-  constructor(
-    options: ConfigOptions = {},
-    env: NodeJS.ProcessEnv = process.env,
-  ) {
+  constructor(options: ConfigOptions = {}, env: Environment = process.env) {
     this.clientId = required(
       optionalString(options, env, "clientId"),
       "clientId",
