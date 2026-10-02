@@ -1,6 +1,6 @@
 {
   "name": "@snapbyte-dev/traw",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Unofficial TypeScript port of PRAW",
   "type": "module",
   "license": "MIT",
