@@ -9,6 +9,16 @@ and Python differ, not Python symbol identity or line-for-line API-shape parity.
 TRAW intentionally uses TypeScript-native names and contracts where they
 preserve the same observable behavior.
 
+TRAW started as an AI-assisted port of PRAW for a practical integration need:
+[snapbyte.dev](https://snapbyte.dev) had Reddit collection running in a separate
+Python service, while its other social media collection services were written
+in TypeScript. Porting the required PRAW capabilities made it possible to
+consolidate the Reddit collector and the existing TypeScript collectors into
+a single service.
+
+snapbyte.dev is one of the production users of TRAW. The package is published
+as a standalone library and is not coupled to snapbyte.dev.
+
 ## Current status
 
 TRAW implements the documented TypeScript API boundaries for authentication,
@@ -149,6 +159,11 @@ than Python-callable objects. See [Compatibility](docs/COMPATIBILITY.md).
 
 TRAW is independently maintained and is not affiliated with, endorsed by, or
 supported by the PRAW project or Reddit.
+
+TRAW began as an AI-assisted TypeScript port using PRAW 8.0.3 as its source and
+behavioral reference. Its TypeScript API intentionally differs where
+TypeScript-native conventions are more appropriate while aiming to preserve the
+corresponding observable Reddit behavior.
 
 The API and behavior baseline is PRAW 8.0.3, created by the PRAW contributors.
 PRAW is Copyright (c) 2016, Bryce Boe. The exact upstream sources used for
