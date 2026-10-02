@@ -11,13 +11,13 @@ preserve the same observable behavior.
 
 TRAW started as an AI-assisted port of PRAW for a practical integration need:
 [snapbyte.dev](https://snapbyte.dev) had Reddit collection running in a separate
-Python service, while its other social media collection services were written
-in TypeScript. Porting the required PRAW capabilities made it possible to
-consolidate the Reddit collector and the existing TypeScript collectors into
-a single service.
+Python service, while its other social media collection services were written in
+TypeScript. Porting the required PRAW capabilities made it possible to
+consolidate the Reddit collector and the existing TypeScript collectors into a
+single service.
 
-snapbyte.dev is one of the production users of TRAW. The package is published
-as a standalone library and is not coupled to snapbyte.dev.
+snapbyte.dev is one of the production users of TRAW. The package is published as
+a standalone library and is not coupled to snapbyte.dev.
 
 ## Current status
 
